@@ -1,0 +1,367 @@
+{
+  "tasks": [
+    {
+      "id": "DISC-01",
+      "title": "Definire policy e sottoruoli amministrativi",
+      "release": "R1",
+      "priority": "P0",
+      "dependency": "DEC-25",
+      "acceptance": "Matrice degli ambiti disponibile e testabile; acquisire gli appunti di Tom"
+    },
+    {
+      "id": "DISC-02",
+      "title": "Formalizzare eleggibilità, controlli documenti e disciplina",
+      "release": "R1",
+      "priority": "P0",
+      "dependency": "DEC-02",
+      "acceptance": "Regole documentate senza inviare il certificato medico a OPES"
+    },
+    {
+      "id": "DISC-03",
+      "title": "Definire validazione e conflitti sulle statistiche",
+      "release": "R1",
+      "priority": "P0",
+      "dependency": "DEC-27",
+      "acceptance": "Ritrovare le indicazioni di Tom e fissare autore e stato ufficiale"
+    },
+    {
+      "id": "ARCH-01",
+      "title": "Definire stack, repository, ambienti e CI",
+      "release": "R1",
+      "priority": "P0",
+      "dependency": "Team",
+      "acceptance": "Scelte registrate, build e test riproducibili"
+    },
+    {
+      "id": "AUTH-01",
+      "title": "Registrazione, accesso e sessioni",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "DEC-16",
+      "acceptance": "Email o numero o provider; nome e cognome; protezione sessioni"
+    },
+    {
+      "id": "AUTH-02",
+      "title": "Permessi server-side per ruoli e risorse",
+      "release": "R1",
+      "priority": "P0",
+      "dependency": "DISC-01",
+      "acceptance": "Membro, giocatore tesserato, responsabili e admin distinti"
+    },
+    {
+      "id": "PERS-01",
+      "title": "Gestione membro, profilo e preferiti",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "AUTH-01",
+      "acceptance": "Modifica dati, preferiti squadre/competizioni, consultazione documenti"
+    },
+    {
+      "id": "PERS-02",
+      "title": "Gestire giocatore senza account",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "DEC-28",
+      "acceptance": "Scheda completa gestita dal responsabile; email operativa"
+    },
+    {
+      "id": "PERS-03",
+      "title": "Collegamento account alla scheda giocatore",
+      "release": "R1",
+      "priority": "P0",
+      "dependency": "DEC-29",
+      "acceptance": "Verifica email + codice fiscale con controllo unicità e conflitti"
+    },
+    {
+      "id": "TEAM-01",
+      "title": "Richiesta creazione e approvazione squadra",
+      "release": "R1",
+      "priority": "P0",
+      "dependency": "DEC-18",
+      "acceptance": "Il giocatore richiede; amministratore torneo approva"
+    },
+    {
+      "id": "TEAM-02",
+      "title": "Nomina e gestione responsabili squadra",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "DEC-18",
+      "acceptance": "Massimo tre responsabili; nomine tracciate e autorizzate"
+    },
+    {
+      "id": "TEAM-03",
+      "title": "Richieste e inviti giocatore-squadra",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "AUTH-02",
+      "acceptance": "Scelta della squadra; il giocatore vede solo le proprie richieste"
+    },
+    {
+      "id": "ROST-01",
+      "title": "Gestire rose e partecipazioni storicizzate",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "TEAM-01",
+      "acceptance": "Storico preservato, distinte coerenti con partecipazione"
+    },
+    {
+      "id": "COMP-01",
+      "title": "Gestire stagioni, tornei e campionati",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "ARCH-01",
+      "acceptance": "CRUD autorizzato, iscrizioni e gestione competizioni"
+    },
+    {
+      "id": "MATCH-01",
+      "title": "Calendario e dettagli partite",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "COMP-01",
+      "acceptance": "Partite selezionabili e consultabili con dati pubblicabili"
+    },
+    {
+      "id": "MATCH-02",
+      "title": "Presenze, distinte e controlli gara",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "ROST-01",
+      "acceptance": "Il giocatore dichiara presenza; responsabile gestisce distinta"
+    },
+    {
+      "id": "MATCH-03",
+      "title": "Risultati, statistiche e documento di campo",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "DISC-03",
+      "acceptance": "Responsabili assegnati, modifiche tracciate e validazione"
+    },
+    {
+      "id": "MATCH-04",
+      "title": "Unificare telecronista e responsabile di campo",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "DEC-21",
+      "acceptance": "Più operatori assegnabili alla stessa gara"
+    },
+    {
+      "id": "REG-01",
+      "title": "Richiesta tesseramento e registrazione pagamento",
+      "release": "R1",
+      "priority": "P0",
+      "dependency": "DEC-02",
+      "acceptance": "Pagamento verificato abilita il tesseramento; membro diventa giocatore"
+    },
+    {
+      "id": "DOC-01",
+      "title": "Caricare e consultare documenti riservati",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "AUTH-02",
+      "acceptance": "Documenti propri e autorizzati, incluse categorie non sportive"
+    },
+    {
+      "id": "OPES-01",
+      "title": "Validare canale esterno OPES",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "Ricerca OPES",
+      "acceptance": "Nessuna API o procedura di esportazione presunta attiva"
+    },
+    {
+      "id": "PAY-01",
+      "title": "Addebiti, pagatori delegati e riconciliazione",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "Cliente/provider",
+      "acceptance": "Esiti verificati lato server; audit e gestione errori"
+    },
+    {
+      "id": "NOT-01",
+      "title": "Notifiche e comunicazioni operative",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "DEC-22",
+      "acceptance": "Nessuna chat generale; email per persone senza account"
+    },
+    {
+      "id": "PUB-01",
+      "title": "Consultazione pubblica e profili sportivi",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "COMP-01",
+      "acceptance": "Guest legge solo dati pubblicati, giocatori selezionabili"
+    },
+    {
+      "id": "DASH-01",
+      "title": "Dashboard differenziate per ruolo",
+      "release": "R1",
+      "priority": "P1",
+      "dependency": "AUTH-02",
+      "acceptance": "Giocatore e responsabile hanno profili distinti"
+    },
+    {
+      "id": "SOCIAL-01",
+      "title": "Profili social personali e di squadra",
+      "release": "R2",
+      "priority": "P1",
+      "dependency": "AUTH-02",
+      "acceptance": "Visibilità, diritti personali e di squadra separati"
+    },
+    {
+      "id": "SOCIAL-02",
+      "title": "Pubblicazione di post e contenuti",
+      "release": "R2",
+      "priority": "P1",
+      "dependency": "SOCIAL-01",
+      "acceptance": "Autore autorizzato, nessuna modifica ai post personali altrui"
+    },
+    {
+      "id": "SOCIAL-03",
+      "title": "Like, follow, commenti, condivisioni e menzioni",
+      "release": "R2",
+      "priority": "P1",
+      "dependency": "SOCIAL-02",
+      "acceptance": "Guest solo lettura, policy e visibilità rispettate"
+    },
+    {
+      "id": "SOCIAL-04",
+      "title": "Moderazione e segnalazioni contenuti",
+      "release": "R2",
+      "priority": "P1",
+      "dependency": "SOCIAL-02",
+      "acceptance": "Moderazione amministrativa tracciata"
+    },
+    {
+      "id": "VIDEO-01",
+      "title": "Video e highlight delle partite",
+      "release": "R2",
+      "priority": "P1",
+      "dependency": "DEC-11",
+      "acceptance": "Upload/playback con permessi, limiti e diritti definiti"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "DEC-01",
+      "topic": "Più organizzazioni",
+      "scope": "R1",
+      "question": "Solo SportX al lancio? Altre organizzazioni gestiscono dati e staff separati?",
+      "answer": "solo sportx",
+      "priority": "P0"
+    },
+    {
+      "id": "DEC-02",
+      "topic": "Workflow tesseramento",
+      "scope": "R1",
+      "question": "Chi invia e chi approva? Quali stati ed esiti rendono il tesseramento valido?",
+      "answer": "il certificato medico non è da inviare ad opes. il pagamento è sufficente per il tesseramento",
+      "priority": "P0"
+    },
+    {
+      "id": "DEC-06",
+      "topic": "Finestre e condizioni di mercato",
+      "scope": "Successiva a R2, solo archivio",
+      "question": "Quando si possono proporre scambi o trasferimenti? Sono ammesse eccezioni? Quando cambia la rosa?",
+      "answer": "durante il periodo di scambio",
+      "priority": "Non pianificata"
+    },
+    {
+      "id": "DEC-11",
+      "topic": "Video e highlight",
+      "scope": "R2",
+      "question": "Video partita già in R1 o insieme al Social? Video completi o clip? Chi carica e chi può vedere?",
+      "answer": "ancora da definire, Intanto si sviluppa insieme ai social",
+      "priority": "P1"
+    },
+    {
+      "id": "DEC-12",
+      "topic": "Visibilità dei dati",
+      "scope": "R1/R2",
+      "question": "Quali dati del profilo sono pubblici? L’utente può limitarli?",
+      "answer": "?",
+      "priority": "P1"
+    },
+    {
+      "id": "DEC-13",
+      "topic": "Canali di notifica",
+      "scope": "R1/R2",
+      "question": "Quali eventi richiedono email, push o notifica interna? Quali preferenze può impostare l’utente? Come vengono gestite per i giocatori senza account?",
+      "answer": "?",
+      "priority": "P1"
+    },
+    {
+      "id": "DEC-14",
+      "topic": "Amichevoli e requisiti",
+      "scope": "Successiva a R2, solo archivio",
+      "question": "Sono ammessi partecipanti esterni? Quali tesseramenti e coperture servono? Chi conferma l’incontro?",
+      "answer": "devi far parte di una squadra per giocare, ma non essere registrato all’app. (non serve verificare il certificato, basta che sia tesserato)",
+      "priority": "Non pianificata"
+    },
+    {
+      "id": "DEC-16",
+      "topic": "Dati iniziali e migrazione",
+      "scope": "R1",
+      "question": "Quali dati attivi servono alla registrazione come membro?",
+      "answer": "mail/numero/provider; nome; cognome",
+      "priority": "P0"
+    },
+    {
+      "id": "DEC-18",
+      "topic": "Creazione squadra",
+      "scope": "R1",
+      "question": "Chi crea la squadra: admin o membro? Serve approvazione? Chi diventa responsabile e chi può cambiarlo?",
+      "answer": "tutti i giocatori posso crearsi una squadra ma deve essere approvata da amministratore torneo. nella richiesta di iscrizione della squadra devo dichiarare il responsabile squadra, uno o più. un responsabile più eleggere altri responsabile (massimo 3 responsabili)",
+      "priority": "P0"
+    },
+    {
+      "id": "DEC-21",
+      "topic": "Telecronista",
+      "scope": "R1",
+      "question": "Serve davvero un ruolo dedicato? Coincide con il responsabile di campo? Quali statistiche aggiuntive raccoglie e quando?",
+      "answer": "telecronista e responsabile di campo sono lo stesso ruolo. posso esserci più persone per partita.",
+      "priority": "P0"
+    },
+    {
+      "id": "DEC-22",
+      "topic": "Messaggistica",
+      "scope": "R1/R2",
+      "question": "Solo comunicazioni operative o anche chat? Tra quali soggetti?",
+      "answer": "solo comuniaioni operative",
+      "priority": "P1"
+    },
+    {
+      "id": "DEC-25",
+      "topic": "Profili amministrativi",
+      "scope": "R1",
+      "question": "Quali profili staff servono? Quali operazioni può svolgere ciascuno? Esistono limiti per squadra, competizione o servizio? Chi assegna ruoli e deleghe?",
+      "answer": "Tom l’ha segnato",
+      "priority": "P0"
+    },
+    {
+      "id": "DEC-27",
+      "topic": "Validazione statistiche e risultati",
+      "scope": "R1",
+      "question": "Quali dati modifica il responsabile squadra e quali quello di campo? Chi valida o corregge conflitti? Quando il risultato è ufficiale?",
+      "answer": "Tom l’ha segnato",
+      "priority": "P0"
+    },
+    {
+      "id": "DEC-28",
+      "topic": "Richieste e presenze",
+      "scope": "R1",
+      "question": "Chi invia e chi risponde alle richieste giocatore → squadra e agli inviti squadra → giocatore? Chi può rispondere per una persona senza account? Chi approva le iscrizioni? Quali stati servono? Entro quando si comunica o cambia la presenza?",
+      "answer": "il responsabile squadra deve poter gestire un giocatore non registrato. campi da inserire per un giocatore non registrato dal responsabile squadra: tutto del utente giocatore (notifiche via email)",
+      "priority": "P0"
+    },
+    {
+      "id": "DEC-29",
+      "topic": "Collegamento account-persona",
+      "scope": "R1",
+      "question": "Chi avvia e approva il collegamento? Come verificare l’identità?",
+      "answer": "Per verificare il profilo possiamo usare il codice fiscale. Approvazione automatica tramite mail e codice fiscale.",
+      "priority": "P0"
+    }
+  ],
+  "document": "# SportX — Piano operativo di sviluppo\n\n\n\n## 0. Criteri del piano\n\n- **Incluso:** Release R1 (tornei, campionati, amministrazione) e R2 (Social, compresi i video partita).\n- **Escluso:** qualsiasi sviluppo appartenente a release successive. Le risposte DEC-06 e DEC-14 restano nel solo registro decisioni per conservare l'informazione già ricevuta.\n- **Fonte delle decisioni:** tabella «Decisioni aperte e domande per il cliente» di Work in Progress, letta il 12 novembre 2026. Sono mantenute soltanto le 15 righe con risposta diversa da /.\n- **Non confondere:** risposta registrata, requisito validato e funzionalità sviluppata. «?», «Tom l’ha segnato» e «ancora da definire» non autorizzano a inventare regole.\n- **Formati:** calcio a 8, portiere incluso; numero convocati, panchina e sostituzioni non sono ancora fissati.\n- **Organizzazione:** una sola organizzazione, SportX (DEC-01); non progettare una gestione commerciale multi-organizzazione per questa release.\n- **Sviluppo:** backlog con identificativi stabili, responsabilità e stati verificati solo dopo test; nessuna durata o data di consegna approvata.\n\n## 1. Obiettivo e attori\n\nSportX è un gestionale per organizzare competizioni di calcio a 8, tesseramenti, squadre, partite, documenti, pagamenti e consultazione pubblica. In R2 aggiunge profili e interazioni Social con video delle partite. L'obiettivo è ridurre la frammentazione tra segreteria, squadre e giocatori e rendere consultabili le informazioni pubblicabili.\n\n| Attore | Capacità in R1 | Capacità in R2 |\n| --- | --- | --- |\n| Visitatore | Consulta calendario, risultati, classifiche, partite, squadre e informazioni pubbliche dei giocatori. | Legge contenuti pubblicati senza interazioni. |\n| Membro | Crea/modifica profilo, consulta documenti, segue squadre/competizioni, sceglie squadra per richieste, può chiedere tesseramento. | Interagisce con contenuti secondo visibilità e autorizzazione. |\n| Giocatore tesserato | Accede al proprio profilo sportivo, presenza, squadra e gare; può richiedere una nuova squadra. Non vede richieste di altri giocatori. | Pubblica contenuti personali. |\n| Responsabile squadra | Gestisce squadra, giocatori anche senza account, richieste, rose, iscrizioni, distinte e pagamenti autorizzati. | Pubblica sul profilo squadra, non modifica contenuti personali dei calciatori. |\n| Responsabile di campo / telecronista | Un ruolo unico; più persone assegnabili alla stessa partita, con verifiche, risultati, statistiche e documento di gara. | Interazioni e profilo personale come membro autorizzato. |\n| Amministratore | Approva richieste squadra, gestisce competizioni, tesseramenti, utenti, gare, pagamenti e controlli. Profili specifici da acquisire (DEC-25). | Modera contenuti e interazioni. |\n\nUn account può avere ruoli cumulabili, ma nell'interfaccia i contesti giocatore e responsabile sono separati. Il membro **non** è un giocatore finché non è tesserato. Non sono previsti in R1/R2 flussi dedicati a genitori o minori.\n\n## 2. Release e criteri di uscita\n\n### R1 — Gestionale sportivo\n\nConsegna funzionale attesa: identità, ruoli, squadre e responsabili, approvazione squadre, tesseramento e pagamenti, documenti, iscrizioni e rose, partite e distinte, presenze, responsabili di campo, risultati/statistiche/classifiche, notifiche operative e dati pubblicabili.\n\n**Gate R1:** una squadra viene richiesta da un giocatore, approvata dall'amministratore, gestita da massimo tre responsabili; un giocatore anche senza account è amministrabile dal responsabile; il membro si tessera con pagamento verificato; risultati e distinta sono autorizzati; il guest legge solo dati pubblici; gli utenti non accedono a richieste o documenti altrui.\n\n### R2 — Social e video\n\nConsegna funzionale attesa: profili personali e delle squadre, post, like, follow, commenti, condivisioni, menzioni, moderazione, video delle partite; messaggistica esclusivamente operativa.\n\n**Gate R2:** il giocatore gestisce contenuti personali, il responsabile solo quelli della squadra; guest in sola lettura, moderazione tracciata e media protetti secondo visibilità. Formato, dimensione massima, conservazione e diritto d'immagine richiedono specifiche prima della pubblicazione effettiva.\n\n## 3. Regole di dominio confermate o derivate dalle risposte\n\n1. DEC-01: una sola organizzazione al lancio, SportX.\n2. DEC-02: il pagamento è sufficiente per il tesseramento; il certificato medico non va inviato a OPES. Non dedurne che non esistano controlli medici interni per l'eleggibilità alla gara.\n3. DEC-16: registrazione mediante email, numero telefonico o provider; nome e cognome.\n4. DEC-18: tutti i giocatori possono creare una squadra, con approvazione dell'amministratore del torneo. Nella richiesta d'iscrizione sono dichiarati uno o più responsabili; ogni responsabile può nominarne altri, fino a tre complessivi.\n5. DEC-21: telecronista e responsabile di campo coincidono; più operatori possono essere assegnati alla stessa partita.\n6. DEC-22: sono previste soltanto comunicazioni operative, non chat libere.\n7. DEC-28: il responsabile squadra può gestire un giocatore privo di account, con i dati del profilo giocatore e notifiche via email.\n8. DEC-29: la presa in carico automatica della scheda usa verifica email e codice fiscale; **proposta tecnica di sicurezza**: email effettivamente verificata, nessun abbinamento ambiguo, controllo delle collisioni e audit. Il codice fiscale non è un segreto.\n9. DEC-11: video partita da sviluppare con R2 Social, pur con modalità da definire.\n10. I dati personali/documenti non diventano pubblici per il solo fatto che esista una scheda sportiva.\n11. Un responsabile non può visualizzare le richieste riferite a squadre diverse dalle proprie; il giocatore non vede le richieste di altri alla squadra.\n12. La distinta conserva la fotografia di rosa e dati validi alla gara; correzioni successive non riscrivono lo storico.\n13. Per risultati e statistiche, regole di validazione da recuperare dagli appunti di Tom (DEC-27): non assegnare unilateralmente la precedenza a un attore.\n14. Per profili e permessi amministrativi, recuperare le specifiche di Tom (DEC-25): il modello provvisorio non è approvazione.\n\n## 4. Flussi operativi R1\n\n### 4.1 Registrazione, membro e collegamento account\n\nIl membro si registra con email/numero/provider, nome e cognome. Modifica le informazioni personali, gestisce documenti e preferiti di squadre/competizioni. Può inviare una richiesta scegliendo la squadra destinataria. Il responsabile può inserire un giocatore non registrato e gestirne la scheda; quando questa persona si registra, si tenta il collegamento con email verificata e codice fiscale. Casi ambigui richiedono verifica e non devono produrre fusione automatica errata.\n\n### 4.2 Creazione squadra e responsabili\n\nIl giocatore inoltra una richiesta di creazione squadra; un amministratore del torneo approva o respinge. Durante la richiesta d'iscrizione della squadra a una competizione si indicano uno o più responsabili. Un responsabile esistente può nominare altri responsabili, senza superare tre. L'account di un responsabile non deve coincidere obbligatoriamente con un giocatore della rosa.\n\n### 4.3 Tesseramento, documenti e OPES\n\nSolo il membro non ancora tesserato richiede il tesseramento. Il sistema registra il pagamento verificato come condizione sufficiente per il tesseramento (DEC-02). L'utente può caricare e consultare documenti, inclusi quelli del tesseramento e gli altri allegati autorizzati. Il certificato medico non viene trasmesso a OPES. Eventuali verifiche interne per poter partecipare alla gara vanno trattate separatamente. La presenza di una ricerca documentale OPES non prova la disponibilità di API per SportX.\n\n### 4.4 Gare, distinte e statistiche\n\nIl giocatore tesserato comunica la propria presenza. Il responsabile squadra prepara la distinta e gestisce gli autorizzati, anche senza account. Uno o più responsabili di campo (telecronisti) verificano dati gara, registrano risultati, marcatori, statistiche, anomalie e documento finale. Pubblicazione, validazione e conflitti seguono le regole da acquisire da DEC-27.\n\n### 4.5 Pagamenti e notifiche\n\nOgni addebito collega servizio, importo, beneficiario, debitore e pagatore eventualmente delegato. L'esito viene verificato lato server; callback ripetuti non producono doppi pagamenti. Il cliente deve scegliere o comunicare il provider. Notifiche e messaggi sono solo operativi; per giocatori senza account si usa la posta elettronica secondo DEC-28. Le preferenze e i canali dettagliati risultano aperti in DEC-13.\n\n## 5. Funzionalità Social R2\n\n- Profili dei giocatori e delle squadre, contenuti pubblici o riservati secondo policy.\n- Post personali del giocatore e post della squadra pubblicati dal responsabile autorizzato.\n- Like, follow, commenti, condivisioni e menzioni per membri autorizzati; lettura pubblica dove consentita.\n- Moderazione amministrativa, gestione segnalazioni e audit dei provvedimenti.\n- Video delle partite sviluppati con R2: upload, player, visibilità, formati e policy media da definire; nessun video in R1 come requisito approvato.\n- Comunicazioni operative senza chat generica.\n\n## 6. Architettura e vincoli di implementazione\n\n**Architettura logica candidata:** applicazione web responsive, backend con autenticazione/autorizzazione server-side, database relazionale, object storage privato per documenti/media, adapter pagamenti, notifiche e job per processi asincroni. Framework, DBMS, hosting e provider non sono selezionati.\n\n**Modello minimo da rivedere:** Account, Persona, RuoloContestuale, Squadra, ResponsabileSquadra, Competizione, IscrizioneSquadra, PartecipazioneGiocatore, Tesseramento, Documento, Partita, Distinta/versioni, Risultato, Statistica, Addebito, Pagamento e, in R2, ProfiloSocial, Contenuto, Interazione, Moderazione e Video. Non considerare questo elenco come DDL approvato.\n\n**Sicurezza e conformità:** least privilege per risorsa, documenti privati, audit amministrativo, pagamenti senza dati carta persistiti, backup e ripristino, protezione dati sanitari, controllo degli accessi ai media, diritti d'immagine e sicurezza delle procedure di collegamento account.\n\n**Modelli esistenti, da riallineare:** docs/domain-model.md, docs/domain-model.mmd, docs/domain-model.url, docs/use-cases.md, docs/use-cases.mmd, docs/use-cases.url. I diagrammi preesistenti rappresentano R1 e non certificano l'implementazione di R2 o i nuovi dettagli decisionali.\n\n## 7. Backlog operativo\n\nTutte le voci sono **da avviare o verificare**: non esistono prove nel repository dello sviluppo dell'applicazione SportX. Il mockup R1 è una demo statica separata. Le priorità sono operative, non scadenze.\n\n| ID | Attività | Release | Priorità | Dipendenze | Criterio di accettazione |\n| --- | --- | --- | --- | --- | --- |\n| DISC-01 | Definire policy e sottoruoli amministrativi | R1 | P0 | DEC-25 | Matrice degli ambiti disponibile e testabile; acquisire gli appunti di Tom |\n| DISC-02 | Formalizzare eleggibilità, controlli documenti e disciplina | R1 | P0 | DEC-02 | Regole documentate senza inviare il certificato medico a OPES |\n| DISC-03 | Definire validazione e conflitti sulle statistiche | R1 | P0 | DEC-27 | Ritrovare le indicazioni di Tom e fissare autore e stato ufficiale |\n| ARCH-01 | Definire stack, repository, ambienti e CI | R1 | P0 | Team | Scelte registrate, build e test riproducibili |\n| AUTH-01 | Registrazione, accesso e sessioni | R1 | P1 | DEC-16 | Email o numero o provider; nome e cognome; protezione sessioni |\n| AUTH-02 | Permessi server-side per ruoli e risorse | R1 | P0 | DISC-01 | Membro, giocatore tesserato, responsabili e admin distinti |\n| PERS-01 | Gestione membro, profilo e preferiti | R1 | P1 | AUTH-01 | Modifica dati, preferiti squadre/competizioni, consultazione documenti |\n| PERS-02 | Gestire giocatore senza account | R1 | P1 | DEC-28 | Scheda completa gestita dal responsabile; email operativa |\n| PERS-03 | Collegamento account alla scheda giocatore | R1 | P0 | DEC-29 | Verifica email + codice fiscale con controllo unicità e conflitti |\n| TEAM-01 | Richiesta creazione e approvazione squadra | R1 | P0 | DEC-18 | Il giocatore richiede; amministratore torneo approva |\n| TEAM-02 | Nomina e gestione responsabili squadra | R1 | P1 | DEC-18 | Massimo tre responsabili; nomine tracciate e autorizzate |\n| TEAM-03 | Richieste e inviti giocatore-squadra | R1 | P1 | AUTH-02 | Scelta della squadra; il giocatore vede solo le proprie richieste |\n| ROST-01 | Gestire rose e partecipazioni storicizzate | R1 | P1 | TEAM-01 | Storico preservato, distinte coerenti con partecipazione |\n| COMP-01 | Gestire stagioni, tornei e campionati | R1 | P1 | ARCH-01 | CRUD autorizzato, iscrizioni e gestione competizioni |\n| MATCH-01 | Calendario e dettagli partite | R1 | P1 | COMP-01 | Partite selezionabili e consultabili con dati pubblicabili |\n| MATCH-02 | Presenze, distinte e controlli gara | R1 | P1 | ROST-01 | Il giocatore dichiara presenza; responsabile gestisce distinta |\n| MATCH-03 | Risultati, statistiche e documento di campo | R1 | P1 | DISC-03 | Responsabili assegnati, modifiche tracciate e validazione |\n| MATCH-04 | Unificare telecronista e responsabile di campo | R1 | P1 | DEC-21 | Più operatori assegnabili alla stessa gara |\n| REG-01 | Richiesta tesseramento e registrazione pagamento | R1 | P0 | DEC-02 | Pagamento verificato abilita il tesseramento; membro diventa giocatore |\n| DOC-01 | Caricare e consultare documenti riservati | R1 | P1 | AUTH-02 | Documenti propri e autorizzati, incluse categorie non sportive |\n| OPES-01 | Validare canale esterno OPES | R1 | P1 | Ricerca OPES | Nessuna API o procedura di esportazione presunta attiva |\n| PAY-01 | Addebiti, pagatori delegati e riconciliazione | R1 | P1 | Cliente/provider | Esiti verificati lato server; audit e gestione errori |\n| NOT-01 | Notifiche e comunicazioni operative | R1 | P1 | DEC-22 | Nessuna chat generale; email per persone senza account |\n| PUB-01 | Consultazione pubblica e profili sportivi | R1 | P1 | COMP-01 | Guest legge solo dati pubblicati, giocatori selezionabili |\n| DASH-01 | Dashboard differenziate per ruolo | R1 | P1 | AUTH-02 | Giocatore e responsabile hanno profili distinti |\n| SOCIAL-01 | Profili social personali e di squadra | R2 | P1 | AUTH-02 | Visibilità, diritti personali e di squadra separati |\n| SOCIAL-02 | Pubblicazione di post e contenuti | R2 | P1 | SOCIAL-01 | Autore autorizzato, nessuna modifica ai post personali altrui |\n| SOCIAL-03 | Like, follow, commenti, condivisioni e menzioni | R2 | P1 | SOCIAL-02 | Guest solo lettura, policy e visibilità rispettate |\n| SOCIAL-04 | Moderazione e segnalazioni contenuti | R2 | P1 | SOCIAL-02 | Moderazione amministrativa tracciata |\n| VIDEO-01 | Video e highlight delle partite | R2 | P1 | DEC-11 | Upload/playback con permessi, limiti e diritti definiti |\n\n## 8. Fasi di sviluppo e gate\n\n| Fase | Focus | Gate di completamento |\n| --- | --- | --- |\n| 0 — Decisioni bloccanti | DEC-25, DEC-27, controlli di eleggibilità, integrazioni e sicurezza account | Specifiche acquisibili e verificabili; ipotesi distinte |\n| 1 — Fondazioni | Stack, autenticazione, policy, migrazioni, CI | Accessi negativi/positivi testati, ambiente replicabile |\n| 2 — Sport | Squadre, responsabili, rose, competizioni e richieste | Approvazioni e ruoli contestuali corretti |\n| 3 — Tesseramenti e gare | Pagamenti, documenti, distinte, campo, statistiche | Pagamento verificato e storico gara consistente |\n| 4 — Esperienza R1 | Dashboard per ruolo, dati pubblici e notifiche | Guest in sola lettura, profili separati e nessun accesso improprio |\n| 5 — Social R2 | Profili/post, interazioni, moderazione e video | Permessi e media verificati, nessuna chat generalista |\n\nNon associare date o percentuali alla fase senza un'effettiva verifica tecnica.\n\n## 9. Strategia di test\n\n- **Identità e sicurezza:** account duplicati, codici fiscali in conflitto, rivendicazioni improprie, email non verificate, deleghe e ruoli cumulabili.\n- **Squadre:** richiesta da giocatore, approvazione amministratore, limite tre responsabili, nomina non autorizzata, giocatore privo di account, privacy delle richieste.\n- **Tesseramenti:** pagamento verificato, callback duplicato, certificato medico non inviato a OPES, distinzione tra tesseramento ed eleggibilità per gara.\n- **Gare:** due operatori di campo, modifiche concorrenti, partita rinviata, distinta e storico, squalifiche se definite, classifiche.\n- **Pagamenti:** pagatore delegato, errore, rimborso se approvato, riconciliazione, importi e storici.\n- **Social R2:** post personali/squadra, guest senza interazioni, contenuti non autorizzati, moderazione, limiti e privacy video.\n- **UX e accessibilità:** browser desktop/mobile, tabelle leggibili, errori e stati vuoti, navigazione tramite tastiera.\n\n## 10. Ricerca OPES — evidenze documentali, non integrazione validata\n\nI risultati e i collegamenti seguenti provengono dalla ricerca pubblica del 5 novembre 2026, integrata il 6 novembre. Sono conservati per la release R1 come riferimento tecnico; nessun canale API o processo automatizzato è dato per approvato.\n\n### Ricerca OPES — 1. Risultati e qualità delle evidenze\n\n| Tema | Risultato | Qualità / limite |\n|---|---|---|\n| Piattaforma di riferimento | OPES–Coninet è nominato anche in una comunicazione nazionale del 21 gennaio 2026 | Riscontro nazionale recente; nessuna dimostrazione di API esterne |\n| Operazioni da portale | Tutorial pubblico di tesseramento con gestione anagrafica e tessera | Manuale di settore 2024/25; schermate in parte riferite al 2023/24 |\n| Importazione | Nelle schermate compare una funzione di caricamento CSV | Evidenza documentale, non prova eseguita sul portale corrente |\n| Esportazione | Guida pubblica per estrarre la lista dei tesserati in Excel | Tutorial storico; contenuto e permessi attuali da confermare |\n| Modelli di file | Reperiti un CSV Danza e un modulo Excel Toscana | Schemi diversi e di stagioni precedenti; non un contratto tecnico universale |\n| Automazione storica | Una convenzione 2017/18 descriveva trasferimenti automatici tramite TecnoSport | Precedente documentato, non disponibilità attuale di un servizio per SportX |\n| Sincronizzazione con RASD | Una guida descrive l’invio da OPES verso il Registro | Flusso distinto dall’integrazione SportX → OPES |\n| API per sviluppatori esterni | Documentazione pubblica non reperita nelle fonti esaminate | Esistenza, autorizzazione e condizioni restano da verificare con OPES/Coninet |\n\n### Ricerca OPES — 2. Portale e operazioni documentate\n\nIl tutorial OPES Danza indica `https://opes.coninet.it/#/login`, credenziali rilasciate dalla segreteria e operazioni sulle anagrafiche. Descrive ricerca della persona, creazione/verifica del tesseramento e stampa PDF della tessera. **A pagina 7 è visibile “Importa da CSV”**: il documento non spiega però errori, transazioni o requisiti completi di tale funzione. Non è quindi una specifica sufficiente per sviluppare un connettore. [Tutorial tesseramento OPES–Coninet, pp. 1–7](https://www.opesdanza.it/wp-content/uploads/2024/09/TUTORIAL-TESSERAMENTO-OPES-CONINET.pdf).\n\nUn secondo tutorial illustra il filtro per la scadenza del precedente anno sportivo e l’esportazione della lista tramite il pulsante Excel. Indica anche il riutilizzo dei codici fiscali per cercare le persone durante i rinnovi. Non documenta il formato effettivo del file scaricato, un flusso bidirezionale automatico o le colonne restituite oggi. [Tutorial download vecchi tesserati, pp. 1–4](https://www.opesdanza.it/wp-content/uploads/2023/11/TUTORIAL-DOWNLOAD-TESSERATI-VECCHIO-ANNO-SPORTIVO.pdf).\n\nLa pagina di affiliazione del Comitato Toscana rimanda allo stesso portale per affiliazioni e tesseramenti online. La comunicazione nazionale del gennaio 2026 menziona inoltre l’area riservata OPES–Coninet: questi riferimenti rendono il portale una pista più attuale rispetto al vecchio indirizzo riportato da altre procedure. Non provano che ogni comitato o settore adotti lo stesso workflow. [OPES Toscana — Affiliazione](https://opestoscana.it/affiliazione-3/), [OPES nazionale — comunicazione del 21 gennaio 2026](https://www.opesitalia.it/approvato-il-modello-standard-di-statuto-opes/).\n\nLa vecchia procedura OPES Roma indica invece `tesseramento.opesitalia.it` e contiene una scadenza del 2021. È utile per comprendere la lavorazione manuale storica, ma non va usata come istruzione operativa attuale. [OPES Roma — Procedura di tesseramento](https://www.opesroma.it/procedure-di-tesseramento/).\n\n**Limite della verifica tecnica:** non sono stati usati account, inviati dati di persone o eseguiti tesseramenti. Il portale Coninet non ha restituito contenuti applicativi verificabili al lettore web; una richiesta pubblica dall’ambiente locale ha ricevuto HTTP 503. Il vecchio host ha prodotto un errore di certificato TLS nell’ambiente di ricerca. Questi esiti non dimostrano un disservizio generale, una dismissione o una migrazione ufficiale: la disponibilità per l’utenza SportX resta da controllare.\n\n### Ricerca OPES — 3. File pubblici esaminati\n\n##### CSV del settore Danza\n\nIl collegamento presentato come modulo Excel nella pagina di modulistica restituisce un **CSV UTF-8 con separatore punto e virgola**. Il file scaricato contiene soltanto una riga di intestazione: non contiene tesserati di esempio. Le 14 colonne si raggruppano così:\n\n| Gruppo | Informazioni presenti |\n|---|---|\n| Caratteristiche del tesseramento | Classe, tipo, periodo iniziale/finale, discipline e matricola |\n| Identificazione della persona | Codice fiscale, nome e cognome |\n| Dati anagrafici | Data e luogo/nazione di nascita, sesso, cittadinanza |\n\nQuesta osservazione riguarda il **modello del 2023 pubblicato dal settore Danza**. Non sono documentati nello stesso file i valori ammessi, le codifiche delle discipline, i formati data, il significato operativo di matricola o la gestione degli stranieri. Non è stata dimostrata la sua compatibilità con l’account e le discipline di SportX. [Pagina che distribuisce il modello](https://www.opesdanza.it/modulistica/), [CSV pubblico esaminato](https://www.opesdanza.it/wp-content/uploads/2023/11/tesseramenti-23.csv).\n\n##### Modulo Excel del Comitato Toscana\n\nIl collegamento etichettato 2025/26 restituisce un file `.xlsx` il cui nome contiene 2024/25, mentre l’intestazione del foglio indica 2025/26. Contiene campi per associazione/affiliazione e un elenco nominativo con numero tessera, anagrafica, qualifica, sport, residenza, email e firma. È un modulo diverso dal CSV precedente: **non è stato verificato come file importabile automaticamente in Coninet**. La discordanza di versioni va risolta chiedendo il modello vigente al comitato competente. Sono state ispezionate solo intestazioni e istruzioni, senza riportare eventuali dati compilati. [Pagina di provenienza](https://opestoscana.it/affiliazione-3/), [XLSX esaminato](https://opestoscana.it/wp-content/uploads/2025/09/modulo-tesseramento-opes-2024-2025-1-1.xlsx).\n\n**Inferenza per SportX:** conviene prevedere un mapping versionato per il canale effettivamente autorizzato, invece di fissare un unico tracciato “OPES” a partire da uno di questi esempi. Esportare un foglio dati e attivare una tessera sono operazioni distinte.\n\n### Ricerca OPES — 4. Il precedente TecnoSport\n\nLa convenzione pubblicata da OPES per la stagione **2017/2018** descrive un collegamento che trasferiva automaticamente i tesserati di TecnoSport al sistema informativo OPES, inizialmente per alcune regioni. Il documento parla anche di importazione Excel/CSV nel gestionale e di attivazione del servizio tramite l’ente. È un riscontro storico a favore della possibilità di accordi d’interoperabilità; non espone endpoint, credenziali per sviluppatori, protocolli o disponibilità odierna per software terzi. Prezzi, limiti e tempi di assistenza del documento non sono assunti come condizioni attuali. [Convenzione OPES–TecnoSport, pp. 1–2](https://www.opesitalia.it/wp-content/uploads/2017/08/okconvenzione-opes-tecnosport-rev2.pdf).\n\nLa presentazione collegata dettaglia l’importazione di anagrafiche nel prodotto. Non va confusa con una documentazione API del sistema centrale. [Presentazione TecnoSport](https://www.opesitalia.it/wp-content/uploads/2017/08/TecnoSport_presentazione_per_sito_opes.pdf).\n\n### Ricerca OPES — 5. OPES, Coninet e RASD: tre responsabilità da separare\n\nConinet elenca OPES fra i propri clienti. È quindi un interlocutore tecnico pertinente, da coinvolgere attraverso il referente OPES; questa relazione non attribuisce a SportX diritti di accesso al sistema. [Coninet — Clienti](https://www.coninet.it/i-nostri-clienti.html).\n\nLa guida OPES pubblicata dal Comitato Toscana descrive una trasmissione notturna dal gestionale OPES al RASD e indicatori di invio riuscito, in attesa o con errore, con possibilità di consultarne il dettaglio. **Questo è un collegamento OPES → RASD**, non una prova di API per alimentare OPES da SportX. L’eventuale ricezione dei dati da parte del Registro deve restare distinta dalla creazione della pratica e dalla validità del tesseramento. [Guida pratica RASD, p. 10](https://opestoscana.it/wp-content/uploads/2025/04/guida-pratica-iscrizione-al-rasd.pdf).\n\nI documenti tecnici generici sul Registro reperiti sul sito Coninet descrivono interfacce rivolte agli organismi sportivi. Non costituiscono un’autorizzazione o una specifica per registrare direttamente un tesseramento OPES dal gestionale di un’associazione. [Capitolato storico della piattaforma Registro, §3](https://www.coninet.it/images/atrasparente/bandi_gara/procedure_negoziate/2020/R_A_084_20_PN/07_Evoluzione_piattaforma_Registro_Societ%C3%A0_Sportive_Capitolato_tecnico.pdf).\n\n### Ricerca OPES — 6. Che cosa resta sconosciuto sulle API\n\nNon è stata reperita una documentazione pubblica di tesseramento OPES che specifichi:\n\n- procedura di abilitazione di un gestionale terzo e associazioni autorizzabili;\n- ambienti di test e produzione, autenticazione, permessi e gestione delle credenziali;\n- operazioni disponibili su persone, richieste, rinnovi, tessere e documenti;\n- codifiche, campi obbligatori e requisiti specifici per discipline, minori o soggetti esteri;\n- esiti, ritardi di attivazione, errori parziali e modalità di recupero;\n- deduplicazione, idempotenza, limiti di chiamata e notifiche asincrone;\n- costi, accordi, supporto, versioni e responsabilità sul trattamento dei dati.\n\nQuesta è una **lacuna della documentazione pubblica trovata**, non una dichiarazione dell’ente sull’assenza di API. Non sono stati inventati endpoint o dedotti contratti di integrazione dalle chiamate interne di una web app.\n\nLa ricerca ha escluso gli omonimi OPES di altri settori, i servizi API sanitari/finanziari e le API del Registro non riferite all’operatività dell’associazione. Le dichiarazioni commerciali di altri gestionali non sono state usate come prova di compatibilità tecnica con OPES.\n\n### Ricerca OPES — 7. Percorsi candidati per SportX — proposte da validare\n\n| Percorso | Che cosa farebbe SportX | Passaggio esterno | Condizione prima di implementare |\n|---|---|---|---|\n| Manuale assistito | Prepara pratica e dati da verificare; conserva riferimenti ed esito | Operatore lavora nel portale autorizzato | Confermare referente, procedura e prova dell’esito |\n| Scambio file | Produce un file conforme al tracciato concordato e riconcilia i riscontri disponibili | Operatore importa/esporta nel portale, se abilitato | Ottenere modello vigente e verificare import, errori e ritorno dati sull’utenza reale |\n| API autorizzate | Invia richieste e recupera stati mediante un adapter | Interfaccia contrattualizzata OPES/fornitore | Ricevere specifiche, abilitazione, ambiente di prova e condizioni operative |\n\n**Proposta di lavoro:** verificare per primo il percorso tramite file, che dispone di riscontri documentali, mantenendo il percorso manuale come possibile alternativa. Non pianificare l’automazione API come funzionalità già disponibile. Nessuno dei tre percorsi è stato scelto dal cliente o collaudato durante questa ricerca.\n\nUn flusso candidato tramite file è:\n\n1. La segreteria verifica la pratica in SportX, usando le regole approvate.\n2. SportX genera il lotto per la specifica versione di tracciato concordata e ne conserva la composizione.\n3. Un operatore carica il lotto nel portale autorizzato; eventuali scarti restano distinguibili dagli inserimenti riusciti.\n4. Si recupera un riscontro esterno, automatico soltanto se effettivamente previsto e autorizzato.\n5. SportX collega numero/riferimento tessera, periodo, organizzazione e provenienza dell’esito, senza attivare tutte le pratiche per il solo fatto di aver creato o caricato il file.\n\n**Proposte di modello e verifica:** separare stato della pratica interna, stato del trasferimento e stato esterno; tracciare versione del file, lotto, operatore, riferimenti di ritorno e anomalie. Evitare duplicati su retry. Verificare criteri di riconciliazione per omonimi, dati rettificati, persone senza codice fiscale italiano e rinnovi. La scelta dei campi definitivi dipende dalla specifica autorizzata, non da questa sezione.\n\n### Ricerca OPES — 8. Domande da inviare al referente OPES/Coninet\n\nLe domande sono preparate per un confronto: **non sono stati inviati messaggi o richieste a terzi**.\n\n| Tema | Richiesta concreta |\n|---|---|\n| Perimetro | Quale comitato/settore segue l’associazione SportX e quale portale deve usare? Quali discipline e categorie di tessera sono applicabili? |\n| API | Sono consentite integrazioni da un gestionale proprietario? Chi autorizza SportX e può fornire documentazione e referente tecnico? |\n| File | La funzione CSV è abilitata alla nostra utenza? Potete fornire un tracciato aggiornato con esempio sintetico, codifiche, obbligatorietà e formati? |\n| Operazioni | Il file crea persone e tessere insieme? Come tratta rinnovi, persone esistenti, correzioni, più discipline e più associazioni? |\n| Esiti | Un lotto può riuscire parzialmente? Come si ottiene il dettaglio degli scarti? Esiste un export che consenta la riconciliazione automatica? |\n| Validità | Quale stato e riferimento esterno provano l’avvenuta attivazione? Quali decorrenze e vincoli operativi vanno rispettati? |\n| Casi particolari | Quali dati e consensi servono per minori e persone estere? Come si gestiscono le eventuali anomalie anagrafiche? |\n| Condizioni | Quali costi, limiti, accordi, ambienti di test, vincoli sulle credenziali e canali di assistenza si applicano? |\n| TecnoSport | Esiste ancora il collegamento storico? Lo stesso canale è disponibile ad altri software o è specifico di quel prodotto? |\n| RASD | Quali stati vengono restituiti dal portale OPES e quali riguardano soltanto l’invio al Registro? |\n\nPrimo contatto: **Ufficio Affiliazione e Tesseramento OPES**, `segreteria@opesitalia.it`, telefoni **06 49 77 83 90 / 06 49 77 93 17**, verificati nella pagina nazionale dei servizi. Il referente del comitato dell’associazione può indirizzare la richiesta al corretto ufficio. [OPES — Servizi per gli affiliati](https://www.opesitalia.it/servizi-per-gli-affiliati/).\n\nConinet pubblica `info@coninet.it` e **06 36851** come contatti generali; non sono indicati come help desk dedicato all’integrazione SportX. [Coninet — Contatti](https://www.coninet.it/contatti.html).\n\n### Ricerca OPES — 9. Fonti conservate, metodo e limiti\n\n- Ricerca sul sito nazionale OPES, comitati/settori OPES, Coninet e documenti pubblici collegati. Verificate anche ricerche mirate per API, web service, Swagger, tracciati, import CSV, esportazione, Coninet e TecnoSport.\n- Le fonti operative principali sono del 2023–2025; i riferimenti nazionali del 2026 confermano il nome della piattaforma, senza certificare che tutte le vecchie schermate siano ancora attuali.\n- Il documento TecnoSport si riferisce esplicitamente al 2017/18: la data recente mostrata da un motore di ricerca non ne rinnova le condizioni.\n- Alcune letture web hanno incontrato pagine di verifica o formati non supportati. I sei file elencati nel manifest sono stati recuperati dai loro URL pubblici con normali richieste di download, senza autenticazione o modifica di dati.\n- Ispezionati direttamente i PDF e le schermate pertinenti; letti intestazioni del CSV e campi di intestazione dell’XLSX. Nessun import o export applicativo è stato eseguito.\n- Durante la ricerca sono state esaminate copie locali dei sei documenti pubblici e schermate dei tutorial, con un manifest di controllo. Dopo il consolidamento della ricerca nel presente piano le copie locali e il manifest sono stati rimossi; le fonti web restano indicate nelle sottosezioni precedenti.\n- La ricerca non approva regole assicurative, sanitarie o di eleggibilità per SportX, non seleziona il comitato competente e non definisce un contratto API. Questi elementi richiedono riscontri specifici.\n\nPer DEC-03, l’esito documentato resta: **ricerca pubblica svolta; scambio file documentato da validare; API esterne non confermate**.\n\n\n## 11. Rischi e dipendenze\n\n| Rischio | Mitigazione |\n| --- | --- |\n| Risposte incomplete sui profili amministrativi e sulla validazione gara | Recuperare gli appunti di Tom indicati in DEC-25 e DEC-27, non inventare policy. |\n| Ambiguità tra tesseramento e idoneità alla gara | Trattare pagamento, documentazione ed eleggibilità come controlli distinti. |\n| Canale OPES o provider non disponibili | Validare documentazione, permessi e test prima di implementare automatismi. |\n| Diritti di pubblicazione Social e video | Consensi, visibilità, moderazione e conservazione da definire prima della distribuzione dei media. |\n| Modifiche simultanee ai risultati | Audit e policy di validazione da definire con DEC-27. |\n| Data di consegna non concordata | Pianificare solo dopo stime e dipendenze risolte. |\n\n## 12. Definition of Done\n\n\n## 13. Prossime attività\n\n1. Recuperare le indicazioni di Tom su amministrazione e statistiche (DEC-25 e DEC-27).\n2. Verificare il canale operativo OPES, separato dal requisito di pagamento del tesseramento (DEC-02).\n3. Definire visibilità dati e notifiche (DEC-12 e DEC-13), oltre ai dettagli tecnici dei video R2 (DEC-11).\n4. Aggiornare modelli UML e casi d'uso R1; descrivere Social R2 con permessi e media.\n5. Definire stack, pianificare backlog, implementare e verificare i gate.\n\n## 14. Decisioni aperte e domande per il cliente\n\n\n| ID | Tema | Release / ambito | Domanda | Risposta | Priorità |\n| --- | --- | --- | --- | --- | --- |\n| DEC-01 | Più organizzazioni | R1 | Solo SportX al lancio? Altre organizzazioni gestiscono dati e staff separati? | solo sportx | P0 |\n| DEC-02 | Workflow tesseramento | R1 | Chi invia e chi approva? Quali stati ed esiti rendono il tesseramento valido? | il certificato medico non è da inviare ad opes. il pagamento è sufficente per il tesseramento | P0 |\n| DEC-06 | Finestre e condizioni di mercato | Successiva a R2, solo archivio | Quando si possono proporre scambi o trasferimenti? Sono ammesse eccezioni? Quando cambia la rosa? | durante il periodo di scambio | Non pianificata |\n| DEC-11 | Video e highlight | R2 | Video partita già in R1 o insieme al Social? Video completi o clip? Chi carica e chi può vedere? | ancora da definire, Intanto si sviluppa insieme ai social | P1 |\n| DEC-12 | Visibilità dei dati | R1/R2 | Quali dati del profilo sono pubblici? L’utente può limitarli? | ? | P1 |\n| DEC-13 | Canali di notifica | R1/R2 | Quali eventi richiedono email, push o notifica interna? Quali preferenze può impostare l’utente? Come vengono gestite per i giocatori senza account? | ? | P1 |\n| DEC-14 | Amichevoli e requisiti | Successiva a R2, solo archivio | Sono ammessi partecipanti esterni? Quali tesseramenti e coperture servono? Chi conferma l’incontro? | devi far parte di una squadra per giocare, ma non essere registrato all’app. (non serve verificare il certificato, basta che sia tesserato) | Non pianificata |\n| DEC-16 | Dati iniziali e migrazione | R1 | Quali dati attivi servono alla registrazione come membro? | mail/numero/provider; nome; cognome | P0 |\n| DEC-18 | Creazione squadra | R1 | Chi crea la squadra: admin o membro? Serve approvazione? Chi diventa responsabile e chi può cambiarlo? | tutti i giocatori posso crearsi una squadra ma deve essere approvata da amministratore torneo. nella richiesta di iscrizione della squadra devo dichiarare il responsabile squadra, uno o più. un responsabile più eleggere altri responsabile (massimo 3 responsabili) | P0 |\n| DEC-21 | Telecronista | R1 | Serve davvero un ruolo dedicato? Coincide con il responsabile di campo? Quali statistiche aggiuntive raccoglie e quando? | telecronista e responsabile di campo sono lo stesso ruolo. posso esserci più persone per partita. | P0 |\n| DEC-22 | Messaggistica | R1/R2 | Solo comunicazioni operative o anche chat? Tra quali soggetti? | solo comuniaioni operative | P1 |\n| DEC-25 | Profili amministrativi | R1 | Quali profili staff servono? Quali operazioni può svolgere ciascuno? Esistono limiti per squadra, competizione o servizio? Chi assegna ruoli e deleghe? | Tom l’ha segnato | P0 |\n| DEC-27 | Validazione statistiche e risultati | R1 | Quali dati modifica il responsabile squadra e quali quello di campo? Chi valida o corregge conflitti? Quando il risultato è ufficiale? | Tom l’ha segnato | P0 |\n| DEC-28 | Richieste e presenze | R1 | Chi invia e chi risponde alle richieste giocatore → squadra e agli inviti squadra → giocatore? Chi può rispondere per una persona senza account? Chi approva le iscrizioni? Quali stati servono? Entro quando si comunica o cambia la presenza? | il responsabile squadra deve poter gestire un giocatore non registrato. campi da inserire per un giocatore non registrato dal responsabile squadra: tutto del utente giocatore (notifiche via email) | P0 |\n| DEC-29 | Collegamento account-persona | R1 | Chi avvia e approva il collegamento? Come verificare l’identità? | Per verificare il profilo possiamo usare il codice fiscale. Approvazione automatica tramite mail e codice fiscale. | P0 |\n\n**Attenzione:** DEC-12/13 hanno risposta ?, DEC-25/27 indicano «Tom l’ha segnato» e non forniscono la regola operativa. DEC-11 rimanda i dettagli al futuro. Non trattare queste voci come chiuse.\n\n## 15. Fonti e continuità\n\n- File canonico revisionato: docs/plan.md, revisioni tracciate in Git; sito generato a partire da questo file.\n- Versione 1.5, 12 novembre 2026: ridotto il perimetro a R1 + R2 Social, recepite 15 risposte conservate nella sezione 14, rimossi lavori delle release successive fuori dalla tabella decisioni, e mantenuta la ricerca OPES rilevante per R1.\n"
+}

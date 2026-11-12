@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:15-bookworm
+    environment:
+      POSTGRES_USER: sportx
+      POSTGRES_DB: sportx_plan
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sportx -d sportx_plan"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+  app:
+    build: .
+    environment:
+      PGHOST: db
+      PGUSER: sportx
+      PGDATABASE: sportx_plan
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment}
+    ports:
+      - "127.0.0.1:8791:8791"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  postgres-data:

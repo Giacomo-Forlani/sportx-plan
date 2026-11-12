@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <meta name="theme-color" content="#f4f6f8" />
+    <meta
+      name="description"
+      content="Lo spazio di lavoro condiviso di SportX."
+    />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./style.css" />
+    <title>SportX · Spazio di lavoro</title>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="identity">
+          <span class="identity-mark">SX</span
+          ><span><strong>SportX</strong><small>AREA OPERATIVA</small></span>
+        </div>
+        <div class="side-label">SPAZIO DI LAVORO</div>
+        <nav class="nav" aria-label="Navigazione">
+          <button class="nav-item active" data-view="panoramica">
+            <span class="nav-icon">▦</span>Panoramica</button
+          ><button class="nav-item" data-view="backlog">
+            <span class="nav-icon">☷</span>Backlog
+            <span class="nav-count" id="nav-tasks">—</span></button
+          ><button class="nav-item" data-view="decisioni">
+            <span class="nav-icon">◇</span>Decisioni
+            <span class="nav-count" id="nav-decisions">—</span></button
+          ><button class="nav-item" data-view="documento">
+            <span class="nav-icon">≡</span>Documento
+          </button>
+        </nav>
+        <div class="sidebar-bottom">
+          <span class="status-dot"></span>Spazio condiviso
+          <p>Attività, decisioni e documento del team.</p>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <div class="breadcrumbs">
+            SPORTX <span>/</span> <span id="breadcrumb">PANORAMICA</span>
+          </div>
+          <div class="top-actions">
+            <span id="sync-status" role="status">Connessione…</span
+            ><button class="text-button" id="refresh">Aggiorna</button>
+          </div>
+        </header>
+        <div class="content">
+          <div id="message" class="notice hidden" role="alert"></div>
+          <section class="view" id="view-panoramica">
+            <div class="page-title">
+              <div>
+                <p class="eyebrow">IL LAVORO DEL TEAM</p>
+                <h1>Panoramica progetto</h1>
+                <p class="subtitle">
+                  Uno spazio comune per organizzare le attività e raccogliere le
+                  decisioni.
+                </p>
+              </div>
+              <button class="button primary" data-view="backlog">
+                Apri backlog →
+              </button>
+            </div>
+            <div class="metrics">
+              <div class="metric">
+                <div class="metric-label">ATTIVITÀ</div>
+                <strong id="stat-total">—</strong
+                ><span>In tutte le sezioni</span>
+              </div>
+              <div class="metric">
+                <div class="metric-label">COMPLETATE</div>
+                <strong id="stat-done">—</strong><span>Attività concluse</span>
+              </div>
+              <div class="metric">
+                <div class="metric-label">IN LAVORAZIONE</div>
+                <strong id="stat-active">—</strong
+                ><span>In corso o in verifica</span>
+              </div>
+              <div class="metric">
+                <div class="metric-label">SENZA RISPOSTA</div>
+                <strong id="stat-open">—</strong
+                ><span>Domande da affrontare</span>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><h2>Avanzamento per sezione</h2></div>
+              <div id="section-progress"></div>
+            </div>
+          </section>
+          <section class="view hidden" id="view-backlog">
+            <div class="page-title">
+              <div>
+                <p class="eyebrow">DALLE IDEE AL LAVORO</p>
+                <h1>Backlog operativo</h1>
+                <p class="subtitle">
+                  Attività raggruppate per sezione, in ordine di aggiunta.
+                </p>
+              </div>
+              <div class="actions">
+                <button id="add-section" class="button">+ Sezione</button
+                ><button id="add-task" class="button primary">
+                  + Attività
+                </button>
+              </div>
+            </div>
+            <div class="filters">
+              <label
+                >Ricerca<input
+                  id="task-search"
+                  type="search"
+                  placeholder="Cerca un’attività…" /></label
+              ><label
+                >Stato<select id="task-status">
+                  <option value="">Tutti</option>
+                  <option>Da fare</option>
+                  <option>In corso</option>
+                  <option>In verifica</option>
+                  <option>Bloccato</option>
+                  <option>Completato</option>
+                </select></label
+              ><label
+                >Priorità<select id="task-priority">
+                  <option value="">Tutte</option>
+                  <option>P0</option>
+                  <option>P1</option>
+                  <option>P2</option>
+                </select></label
+              >
+            </div>
+            <div class="table-top"><span id="task-count"></span></div>
+            <div id="task-sections"></div>
+          </section>
+          <section class="view hidden" id="view-decisioni">
+            <div class="page-title">
+              <div>
+                <p class="eyebrow">DOMANDE E RISPOSTE</p>
+                <h1>Decisioni</h1>
+                <p class="subtitle">
+                  Scrivi e modifica qui le domande e le risposte del team.
+                </p>
+              </div>
+              <button id="add-decision" class="button primary">
+                + Domanda
+              </button>
+            </div>
+            <form id="new-decision" class="panel inline-editor hidden">
+              <label
+                >Domanda<textarea
+                  id="new-question"
+                  required
+                  maxlength="10000"
+                  rows="3"
+                ></textarea></label
+              ><label
+                >Risposta<textarea
+                  id="new-answer"
+                  maxlength="20000"
+                  rows="3"
+                  placeholder="Puoi aggiungerla anche in seguito"
+                ></textarea>
+              </label>
+              <div class="editor-actions">
+                <button class="button" type="button" id="cancel-decision">
+                  Annulla</button
+                ><button class="button primary" type="submit">
+                  Aggiungi domanda
+                </button>
+              </div>
+            </form>
+            <div class="filters">
+              <label
+                >Ricerca<input
+                  id="decision-search"
+                  type="search"
+                  placeholder="Cerca una domanda o una risposta…"
+              /></label>
+            </div>
+            <p class="footnote">
+              Ogni risposta modificata porta la domanda in fondo alla sezione
+              corrispondente.
+            </p>
+            <div id="decision-sections"></div>
+          </section>
+          <section class="view hidden" id="view-documento">
+            <div class="page-title">
+              <div>
+                <p class="eyebrow">APPUNTI DEL PROGETTO</p>
+                <h1>Documento</h1>
+                <p class="subtitle">
+                  Modifica il testo in Markdown e visualizza l’anteprima.
+                </p>
+              </div>
+              <div class="actions">
+                <button id="preview-document" class="button">Anteprima</button
+                ><button id="save-document" class="button primary">
+                  Salva documento
+                </button>
+              </div>
+            </div>
+            <label class="document-label" for="document-text"
+              >Testo Markdown
+              <span id="document-status" role="status"></span></label
+            ><textarea
+              id="document-text"
+              class="document-text"
+              spellcheck="false"
+            ></textarea>
+            <article
+              id="document-preview"
+              class="markdown panel hidden"
+            ></article>
+          </section>
+        </div>
+      </main>
+    </div>
+    <dialog id="task-dialog" class="editor">
+      <form id="task-form">
+        <div class="editor-head">
+          <div>
+            <p class="eyebrow" id="task-code">NUOVA ATTIVITÀ</p>
+            <h2 id="task-editor-title">Attività</h2>
+          </div>
+          <button type="button" class="close" data-close aria-label="Chiudi">
+            ×
+          </button>
+        </div>
+        <label>Sezione<select id="editor-section" required></select></label
+        ><label
+          >Titolo<input id="editor-title" required maxlength="180" /></label
+        ><label
+          >Descrizione<textarea
+            id="editor-description"
+            rows="6"
+            maxlength="20000"
+          ></textarea>
+        </label>
+        <div class="two-fields">
+          <label
+            >Stato<select id="editor-status">
+              <option>Da fare</option>
+              <option>In corso</option>
+              <option>In verifica</option>
+              <option>Bloccato</option>
+              <option>Completato</option>
+            </select></label
+          ><label
+            >Priorità<select id="editor-priority">
+              <option>P1</option>
+              <option>P0</option>
+              <option>P2</option>
+            </select></label
+          >
+        </div>
+        <label
+          >Responsabile<input
+            id="editor-owner"
+            maxlength="120"
+            placeholder="Non assegnato"
+        /></label>
+        <p class="form-error" role="alert"></p>
+        <div class="editor-actions">
+          <button class="button" type="button" data-close>Annulla</button
+          ><button class="button primary" type="submit">Salva attività</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="section-dialog" class="editor">
+      <form id="section-form">
+        <div class="editor-head">
+          <h2>Nuova sezione</h2>
+          <button type="button" class="close" data-close aria-label="Chiudi">
+            ×
+          </button>
+        </div>
+        <label
+          >Codice<input
+            id="section-code"
+            required
+            maxlength="16"
+            pattern="[a-zA-Z][a-zA-Z0-9]{0,15}"
+            placeholder="Es. ARCH" /></label
+        ><label
+          >Nome<input
+            id="section-name"
+            required
+            maxlength="100"
+            placeholder="Es. Architettura"
+        /></label>
+        <p class="form-error" role="alert"></p>
+        <div class="editor-actions">
+          <button class="button" type="button" data-close>Annulla</button
+          ><button class="button primary" type="submit">Crea sezione</button>
+        </div>
+      </form>
+    </dialog>
+    <script src="./app.js" defer></script>
+  </body>
+</html>

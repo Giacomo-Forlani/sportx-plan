@@ -1,0 +1,8 @@
+node_modules/
+__pycache__/
+services/postgres/
+services/logs/
+.env
+src/data.json
+src/documento.html
+src/plan.md

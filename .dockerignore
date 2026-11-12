@@ -1,0 +1,8 @@
+.git
+node_modules
+.env
+services/postgres
+services/logs
+src/data.json
+src/documento.html
+src/plan.md

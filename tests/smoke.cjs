@@ -1,0 +1,163 @@
+const assert = require("node:assert/strict");
+const puppeteer = require(
+  process.env.PUPPETEER_MODULE ||
+    "/usr/local/lib/node_modules/@wonderwhy-er/desktop-commander/node_modules/puppeteer",
+);
+(async () => {
+  if (!process.env.PGDATABASE?.endsWith("_test"))
+    throw new Error("Use PGDATABASE ending in _test.");
+  process.env.NODE_ENV = "test";
+  const { pool } = await import("../services/db.js");
+  const { start } = await import("../services/server.js");
+  const database = await pool.query("SELECT current_database() AS name");
+  assert.equal(database.rows[0].name, process.env.PGDATABASE, "Database di test inatteso");
+  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public");
+  const server = await start(0);
+  const browser = await puppeteer.launch({
+    executablePath:
+      process.env.CHROME_BIN ||
+      "/workspace/.chatgpt-state/dc-settings/puppeteer-cache/chrome/linux-156.0.8078.73/chrome-linux64/chrome",
+    headless: true,
+    args: ["--no-sandbox", "--disable-dev-shm-usage"],
+  });
+  const errors = [];
+  try {
+    const a = await browser.newPage(),
+      context = await browser.createBrowserContext(),
+      b = await context.newPage();
+    for (const page of [a, b]) {
+      page.on("pageerror", (e) => errors.push(e.message));
+      await page.setViewport({ width: 1440, height: 1000 });
+      await page.goto(
+        "http://127.0.0.1:" + server.address().port + "/sportx-plan/",
+        { waitUntil: "networkidle0" },
+      );
+      await page.waitForFunction(
+        () => document.querySelector("#stat-total").textContent === "30",
+      );
+    }
+    await a.click('[data-view="backlog"]');
+    await a.click("#add-section");
+    await a.type("#section-code", "TEST");
+    await a.type("#section-name", "Test del team");
+    await a.click("#section-form button[type=submit]");
+    await a.waitForSelector("#section-dialog:not([open])");
+    await a.click("#add-task");
+    await a.select(
+      "#editor-section",
+      await a.$eval("#editor-section option:last-child", (e) => e.value),
+    );
+    await a.type("#editor-title", "Attività condivisa");
+    await a.type(
+      "#editor-description",
+      "Una descrizione che non appare nella card",
+    );
+    await a.click("#task-form button[type=submit]");
+    await a.waitForSelector('[data-id="TEST-01"]');
+    assert.doesNotMatch(
+      await a.$eval('[data-id="TEST-01"]', (e) => e.textContent),
+      /descrizione/,
+    );
+    await b.click('[data-view="backlog"]');
+    await b.waitForSelector('[data-id="TEST-01"]', { timeout: 12000 });
+    await a.click('[data-id="TEST-01"] .task-open');
+    await a.select("#editor-status", "In corso");
+    await a.click("#task-form button[type=submit]");
+    await a.waitForFunction(
+      () =>
+        document.querySelector('[data-id="TEST-01"] .status-badge')
+          .textContent === "In corso",
+    );
+    await b.waitForFunction(
+      () =>
+        document.querySelector('[data-id="TEST-01"] .status-badge')
+          .textContent === "In corso",
+      { timeout: 12000 },
+    );
+    a.on("dialog", (d) => d.accept());
+    await a.click('[data-id="TEST-01"] .danger');
+    await a.waitForFunction(
+      () => !document.querySelector('[data-id="TEST-01"]'),
+    );
+    await a.click("#add-task");
+    await a.select(
+      "#editor-section",
+      await a.$eval("#editor-section option:last-child", (e) => e.value),
+    );
+    await a.type("#editor-title", "Seconda attività");
+    await a.click("#task-form button[type=submit]");
+    await a.waitForSelector('[data-id="TEST-02"]');
+    await a.click('[data-view="decisioni"]');
+    await a.click("#add-decision");
+    await a.type("#new-question", "Domanda condivisa?");
+    await a.click("#new-decision button[type=submit]");
+    await a.waitForFunction(
+      () =>
+        document.querySelector('[data-answered="false"] .decision textarea')
+          ?.value === "Domanda condivisa?",
+    );
+    const decisionId = await a.$eval(
+      '[data-answered="false"] .decision',
+      (e) => e.dataset.id,
+    );
+    await a.type(
+      '[data-answered="false"] .decision label:nth-of-type(2) textarea',
+      "Risposta del team",
+    );
+    await a.click('[data-answered="false"] .decision button[type=submit]');
+    await a.waitForSelector(
+      '[data-answered="true"] .decision[data-id="' + decisionId + '"]',
+    );
+    await a.click('[data-view="documento"]');
+    await a.$eval("#document-text", (e) => {
+      e.value = "# Test condiviso\n\n**Testo Markdown**";
+      e.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await a.click("#save-document");
+    await a.waitForFunction(
+      () =>
+        document.querySelector("#document-status").textContent === "Salvato",
+    );
+    await a.click("#preview-document");
+    await a.waitForSelector("#document-preview:not(.hidden) strong");
+    assert.equal(
+      await a.$eval("#document-preview strong", (e) => e.textContent),
+      "Testo Markdown",
+    );
+    await b.click('[data-view="documento"]');
+    await b.waitForFunction(
+      () =>
+        document
+          .querySelector("#document-text")
+          .value.includes("# Test condiviso"),
+      { timeout: 12000 },
+    );
+    await a.setViewport({ width: 375, height: 812 });
+    for (const view of ["panoramica", "backlog", "decisioni", "documento"]) {
+      await a.evaluate((v) => (location.hash = v), view);
+      await a.waitForFunction(
+        (v) =>
+          !document.querySelector("#view-" + v).classList.contains("hidden"),
+        {},
+        view,
+      );
+      assert.ok(
+        await a.evaluate(() => document.body.scrollWidth <= innerWidth + 2),
+        "Mobile overflow " + view,
+      );
+    }
+    assert.equal(await a.$$eval('[data-view="rilasci"]', (e) => e.length), 0);
+    assert.deepEqual(errors, []);
+    await a.screenshot({ path: "/tmp/sportx-plan-mobile.png", fullPage: true });
+    console.log(
+      "OK: two browsers, shared edits, deletion and numbering, inline decisions, Markdown, mobile, no JavaScript errors.",
+    );
+  } finally {
+    await browser.close();
+    await new Promise((r) => server.close(r));
+    await pool.end();
+  }
+})().catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
+});

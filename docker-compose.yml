@@ -1,4 +1,4 @@
-# Dokploy: Docker Compose service, source GitHub, compose path ./compose.yaml.
+# Dokploy: Docker Compose service, source GitHub, compose path ./docker-compose.yml.
 # Configure the domain for service app, container port 8791 in Dokploy's UI.
 services:
   db:

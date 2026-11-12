@@ -29,7 +29,7 @@ Creare un servizio **Docker Compose** nel progetto Dokploy e collegare questo re
 | Repository | `Giacomo-Forlani/sportx-plan` |
 | Branch | `main` |
 | Tipo | Docker Compose (non Docker Stack) |
-| Compose path | `./compose.yaml` |
+| Compose path | `./docker-compose.yml` |
 | Build context | Radice del repository, già configurata nel Compose |
 | Variabile obbligatoria | `POSTGRES_PASSWORD`, impostata in Environment |
 | Servizio del dominio | `app` |
@@ -64,12 +64,12 @@ Sul server Dokploy, nella directory del checkout del servizio, usare il **nome p
 ```sh
 # Impostare DOKPLOY_COMPOSE_PROJECT con il nome del progetto esistente.
 # Il database di destinazione deve essere nuovo e destinato alla migrazione.
-docker compose -p "$DOKPLOY_COMPOSE_PROJECT" -f compose.yaml stop app
-docker compose -p "$DOKPLOY_COMPOSE_PROJECT" -f compose.yaml exec -T db \
+docker compose -p "$DOKPLOY_COMPOSE_PROJECT" -f docker-compose.yml stop app
+docker compose -p "$DOKPLOY_COMPOSE_PROJECT" -f docker-compose.yml exec -T db \
   pg_restore -U sportx -d sportx_plan --clean --if-exists \
   --no-owner --no-acl --exit-on-error --single-transaction \
   < /percorso/privato/sportx-plan.dump
-docker compose -p "$DOKPLOY_COMPOSE_PROJECT" -f compose.yaml start app
+docker compose -p "$DOKPLOY_COMPOSE_PROJECT" -f docker-compose.yml start app
 ```
 
 Il restore sostituisce i contenuti del DB di destinazione; eseguirlo solo sul nuovo servizio predisposto per ricevere i dati. Verificare attività, decisioni e documento prima di spostare il traffico. Il seed non sovrascrive un database ripristinato. Usare `pg_dump` anche per i backup periodici dei dati operativi, separati dal volume.
@@ -79,7 +79,7 @@ Il restore sostituisce i contenuti del DB di destinazione; eseguirlo solo sul nu
 Copiare `.env.example` in `.env` e compilare `POSTGRES_PASSWORD`, quindi:
 
 ```sh
-docker compose -f compose.yaml -f compose.local.yaml up -d --build
+docker compose -f docker-compose.yml -f compose.local.yaml up -d --build
 ```
 
 Aprire `http://127.0.0.1:8791/` oppure `http://127.0.0.1:8791/sportx-plan/`. L'override locale pubblica la porta solo su loopback; non va selezionato in Dokploy. `SPORTX_PORT` permette di cambiare la porta locale se è già occupata.
@@ -87,7 +87,7 @@ Aprire `http://127.0.0.1:8791/` oppure `http://127.0.0.1:8791/sportx-plan/`. L'o
 Per validare la configurazione prima del deploy:
 
 ```sh
-docker compose -f compose.yaml config --quiet
+docker compose -f docker-compose.yml config --quiet
 ```
 
 In alternativa, usare Node 24 e PostgreSQL 15 o successivo:

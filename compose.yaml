@@ -1,30 +1,51 @@
+# Dokploy: Docker Compose service, source GitHub, compose path ./compose.yaml.
+# Configure the domain for service app, container port 8791 in Dokploy's UI.
 services:
   db:
     image: postgres:15-bookworm
     environment:
       POSTGRES_USER: sportx
       POSTGRES_DB: sportx_plan
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Dokploy Environment}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sportx -d sportx_plan"]
       interval: 5s
       timeout: 3s
       retries: 10
+      start_period: 10s
     restart: unless-stopped
+    stop_grace_period: 30s
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    init: true
     environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "8791"
       PGHOST: db
+      PGPORT: "5432"
       PGUSER: sportx
       PGDATABASE: sportx_plan
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment}
-    ports:
-      - "127.0.0.1:8791:8791"
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Dokploy Environment}
+    expose:
+      - "8791"
+    networks:
+      - default
+      - backend
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
+    stop_grace_period: 30s
 volumes:
   postgres-data:
+networks:
+  default:
+  backend:
+    internal: true

@@ -240,6 +240,12 @@ export async function start(port = Number(process.env.PORT || 8791)) {
     res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
     try {
       const url = new URL(req.url, "http://localhost");
+      // Relative asset/API URLs require the trailing slash on subpath deployments.
+      if (url.pathname === "/sportx-plan") {
+        res.writeHead(308, { Location: "/sportx-plan/" + url.search });
+        res.end();
+        return;
+      }
       let path = url.pathname.replace(/^\/sportx-plan(?=\/|$)/, "") || "/";
       if (path.startsWith("/api/")) {
         if (!["GET", "HEAD"].includes(req.method)) {

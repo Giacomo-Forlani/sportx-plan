@@ -1,0 +1,5 @@
+# Optional local access; do not select this override in Dokploy.
+services:
+  app:
+    ports:
+      - "127.0.0.1:${SPORTX_PORT:-8791}:8791"

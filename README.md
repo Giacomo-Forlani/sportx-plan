@@ -20,15 +20,75 @@ Il precedente localStorage non viene cancellato né importato automaticamente ne
 
 I dati del DB e i log sono esclusi da Git. Git conserva codice e contenuti iniziali, non i dati operativi futuri. Per un backup usare `pg_dump` verso una posizione privata; conservare il dump separatamente dal volume.
 
-## Avvio con Docker Compose
+## Deploy su Dokploy
 
-Impostare `POSTGRES_PASSWORD` nell'ambiente oppure in un `.env` locale ignorato da Git, quindi:
+Creare un servizio **Docker Compose** nel progetto Dokploy e collegare questo repository. Impostazioni:
+
+| Campo | Valore |
+| --- | --- |
+| Repository | `Giacomo-Forlani/sportx-plan` |
+| Branch | `main` |
+| Tipo | Docker Compose (non Docker Stack) |
+| Compose path | `./compose.yaml` |
+| Build context | Radice del repository, già configurata nel Compose |
+| Variabile obbligatoria | `POSTGRES_PASSWORD`, impostata in Environment |
+| Servizio del dominio | `app` |
+| Porta del container | `8791` |
+| Healthcheck | `GET /api/health`, incluso nell'immagine |
+
+1. In **Environment**, aggiungere `POSTGRES_PASSWORD` con una password generata, ad esempio con `openssl rand -hex 32`. `.env.example` elenca le variabili; non contiene credenziali. Il Compose passa esplicitamente la password ai due servizi e blocca il deploy se è vuota.
+2. In **Domains**, aggiungere il dominio, selezionare `app`, porta `8791`, e abilitare HTTPS. Per un dominio dedicato usare il percorso `/`; per conservare l'indirizzo attuale usare host `chatgpt.giacomoforlani.com`, percorso `/sportx-plan`, senza rimuovere il prefisso. L'app supporta entrambi i casi e reindirizza `/sportx-plan` a `/sportx-plan/`.
+3. Usare **Preview Compose** per controllare il risultato: `app` e `db` devono mantenere la rete `backend`; `app` deve inoltre avere la rete del proxy aggiunta da Dokploy. Non assegnare un dominio al servizio `db`. Non servono porte pubblicate sull'host né un Nginx aggiuntivo.
+4. Avviare **Deploy**. PostgreSQL deve risultare healthy prima dell'avvio dell'app; l'healthcheck dell'app verifica anche la connessione al DB. Controllare `https://<dominio>/api/health` (oppure `/sportx-plan/api/health`), poi aprire il sito.
+
+Dokploy gestisce etichette Traefik e rete del proxy tramite la configurazione Domains: [documentazione domini](https://docs.dokploy.com/docs/core/docker-compose/domains). Variabili e volumi seguono la [documentazione Docker Compose](https://docs.dokploy.com/docs/core/docker-compose).
+
+### Persistenza e dati esistenti
+
+Il volume Docker `postgres-data` conserva il database tra restart e redeploy dello stesso servizio. Mantenere invariati il progetto Compose e il volume; non usare `down -v` per aggiornare il sito. Cambiare `POSTGRES_PASSWORD` nell'ambiente non cambia la password di un database già inizializzato: una rotazione richiede anche l'aggiornamento del ruolo PostgreSQL.
+
+**Un primo deploy su Dokploy crea un nuovo database con i dati iniziali del repository. Non trasferisce automaticamente i dati del sito attuale.** Per portarli sul nuovo server, eseguire un dump consistente prima del passaggio del dominio, conservarlo fuori dal repository e ripristinarlo nel database Dokploy con l'app ferma. Durante il trasferimento finale sospendere le scritture sul sito di origine.
+
+Dal workspace attuale, salvare il dump in una cartella privata:
 
 ```sh
-docker compose up -d --build
+umask 077
+PGHOST=/workspace/Website/sportx-plan/services/postgres/socket \
+PGPORT=5544 PGUSER=codex \
+pg_dump --format=custom --no-owner --no-acl --dbname=sportx_plan \
+  --file=/percorso/privato/sportx-plan.dump
 ```
 
-Aprire `http://127.0.0.1:8791/sportx-plan/`. Il database usa il volume persistente `postgres-data`; non eseguire `docker compose down -v` se si vogliono conservare i dati. L'app è esposta solo su loopback per l'uso dietro un reverse proxy. Per questa modalità instradare tutto `/sportx-plan/` all'app; il processo Node serve anche gli asset.
+Sul server Dokploy, nella directory del checkout del servizio, usare il **nome progetto Compose effettivo mostrato da Dokploy** (non eseguire questi comandi nel container dell'app):
+
+```sh
+# Impostare DOKPLOY_COMPOSE_PROJECT con il nome del progetto esistente.
+# Il database di destinazione deve essere nuovo e destinato alla migrazione.
+docker compose -p "$DOKPLOY_COMPOSE_PROJECT" -f compose.yaml stop app
+docker compose -p "$DOKPLOY_COMPOSE_PROJECT" -f compose.yaml exec -T db \
+  pg_restore -U sportx -d sportx_plan --clean --if-exists \
+  --no-owner --no-acl --exit-on-error --single-transaction \
+  < /percorso/privato/sportx-plan.dump
+docker compose -p "$DOKPLOY_COMPOSE_PROJECT" -f compose.yaml start app
+```
+
+Il restore sostituisce i contenuti del DB di destinazione; eseguirlo solo sul nuovo servizio predisposto per ricevere i dati. Verificare attività, decisioni e documento prima di spostare il traffico. Il seed non sovrascrive un database ripristinato. Usare `pg_dump` anche per i backup periodici dei dati operativi, separati dal volume.
+
+## Avvio locale con Docker Compose
+
+Copiare `.env.example` in `.env` e compilare `POSTGRES_PASSWORD`, quindi:
+
+```sh
+docker compose -f compose.yaml -f compose.local.yaml up -d --build
+```
+
+Aprire `http://127.0.0.1:8791/` oppure `http://127.0.0.1:8791/sportx-plan/`. L'override locale pubblica la porta solo su loopback; non va selezionato in Dokploy. `SPORTX_PORT` permette di cambiare la porta locale se è già occupata.
+
+Per validare la configurazione prima del deploy:
+
+```sh
+docker compose -f compose.yaml config --quiet
+```
 
 In alternativa, usare Node 24 e PostgreSQL 15 o successivo:
 
@@ -69,4 +129,4 @@ git diff --check
 
 Impostare anche i parametri PostgreSQL necessari. Nel workspace: `PGHOST=/workspace/Website/sportx-plan/services/postgres/socket PGPORT=5544 PGUSER=codex`. I test browser accettano `PUPPETEER_MODULE` e `CHROME_BIN`; i valori predefiniti usano gli strumenti già installati nel workspace.
 
-Le verifiche coprono seed idempotente, numerazione concorrente, cancellazione senza riuso, conflitti, ordine delle decisioni, persistenza al riavvio dell'app, sanificazione Markdown e due sessioni browser con layout mobile. Il Compose è fornito per portabilità; la pubblicazione corrente usa il servizio nativo del workspace.
+Le verifiche coprono seed idempotente, numerazione concorrente, cancellazione senza riuso, conflitti, ordine delle decisioni, persistenza al riavvio dell'app, sanificazione Markdown e due sessioni browser con layout mobile. Il Compose è predisposto per Dokploy; il sito attuale usa ancora il servizio nativo del workspace. La preparazione del repository non esegue un deploy o una migrazione su Dokploy.

@@ -7,8 +7,12 @@ process.env.NODE_ENV = "test";
 const { start } = await import("../services/server.js");
 const { pool } = await import("../services/db.js");
 const database = await pool.query("SELECT current_database() AS name");
-  assert.equal(database.rows[0].name, process.env.PGDATABASE, "Database di test inatteso");
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public");
+assert.equal(
+  database.rows[0].name,
+  process.env.PGDATABASE,
+  "Database di test inatteso",
+);
+await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public");
 let server = await start(0);
 let base = "http://127.0.0.1:" + server.address().port + "/api";
 after(async () => {
@@ -147,4 +151,24 @@ test("seed, numbering under concurrency, deletion, conflicts, ordering, persiste
   assert.equal(state.document.revision, doc.revision);
   assert.ok(state.tasks.some((t) => t.id === "QA-13"));
   assert.equal(state.tasks.filter((t) => t.id === "DISC-01").length, 1);
+});
+
+test("Docker healthcheck and root/subpath deployment routes", async () => {
+  const origin = base.replace(/\/api$/, "");
+  for (const prefix of ["", "/sportx-plan"]) {
+    const home = await fetch(origin + prefix + "/");
+    assert.equal(home.status, 200);
+    assert.match(await home.text(), /src="\.\/app\.js"/);
+    const asset = await fetch(origin + prefix + "/app.js");
+    assert.equal(asset.status, 200);
+    assert.match(asset.headers.get("content-type"), /javascript/);
+    const health = await fetch(origin + prefix + "/api/health");
+    assert.equal(health.status, 200);
+    assert.deepEqual(await health.json(), { ok: true });
+  }
+  const redirect = await fetch(origin + "/sportx-plan?from=dokploy", {
+    redirect: "manual",
+  });
+  assert.equal(redirect.status, 308);
+  assert.equal(redirect.headers.get("location"), "/sportx-plan/?from=dokploy");
 });

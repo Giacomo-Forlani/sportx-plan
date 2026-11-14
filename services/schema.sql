@@ -1,8 +1,10 @@
 CREATE SEQUENCE IF NOT EXISTS decision_order;
 CREATE TABLE IF NOT EXISTS sections (
- id bigserial PRIMARY KEY, code text NOT NULL UNIQUE, name text NOT NULL,
+ id bigserial PRIMARY KEY, code text NOT NULL UNIQUE,
  next_number integer NOT NULL DEFAULT 1 CHECK(next_number > 0)
 );
+-- Remove the legacy duplicate label on existing installations.
+ALTER TABLE sections DROP COLUMN IF EXISTS name;
 CREATE TABLE IF NOT EXISTS tasks (
  position bigserial PRIMARY KEY, id text NOT NULL UNIQUE,
  section_id bigint NOT NULL REFERENCES sections(id), title text NOT NULL,

@@ -124,7 +124,7 @@
         done = list.filter((t) => t.status === "Completato").length;
       const row = add($("section-progress"), "div", "progress-item");
       const head = add(row, "div", "progress-head");
-      add(head, "strong", "", s.code + " · " + s.name);
+      add(head, "strong", "", s.code);
       add(head, "span", "", done + " / " + list.length);
       const bar = add(row, "div", "progress-bar");
       add(bar, "div").style.width =
@@ -154,7 +154,7 @@
       if (!list.length && (q || status || priority)) continue;
       const group = add(root, "section", "backlog-section");
       const head = add(group, "div", "section-heading");
-      add(head, "h2", "", s.code + (s.name !== s.code ? " · " + s.name : ""));
+      add(head, "h2", "", s.code);
       add(head, "span", "pill", String(list.length));
       if (!list.length)
         add(
@@ -199,7 +199,7 @@
       ? "Modifica attività"
       : "Nuova attività";
     $("editor-section").replaceChildren(
-      ...state.sections.map((s) => new Option(s.code + " · " + s.name, s.id)),
+      ...state.sections.map((s) => new Option(s.code, s.id)),
     );
     $("editor-section").disabled = !!task;
     if (task) {
@@ -342,7 +342,6 @@
       () =>
         api("/sections", "POST", {
           code: $("section-code").value,
-          name: $("section-name").value,
         }),
       $("section-form"),
       () => $("section-dialog").close(),

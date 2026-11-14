@@ -67,7 +67,7 @@ async function snapshot() {
   try {
     await c.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const sections = await c.query(
-      "SELECT id,code,name FROM sections ORDER BY id",
+      "SELECT id,code FROM sections ORDER BY id",
     );
     const tasks = await c.query("SELECT * FROM tasks ORDER BY position");
     const decisions = await c.query(
@@ -98,8 +98,7 @@ async function api(req, path) {
   }
   if (req.method === "POST" && path === "/sections") {
     const b = await body(req),
-      code = field(b, "code", 16).toUpperCase(),
-      name = field(b, "name", 100);
+      code = field(b, "code", 16).toUpperCase();
     if (!/^[A-Z][A-Z0-9]{0,15}$/.test(code))
       throw new Problem(
         400,
@@ -107,8 +106,8 @@ async function api(req, path) {
       );
     return (
       await pool.query(
-        "INSERT INTO sections(code,name) VALUES($1,$2) RETURNING id,code,name",
-        [code, name],
+        "INSERT INTO sections(code) VALUES($1) RETURNING id,code",
+        [code],
       )
     ).rows[0];
   }

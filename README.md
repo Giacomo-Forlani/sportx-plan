@@ -7,6 +7,7 @@ Frontend JavaScript senza framework, API Node.js e PostgreSQL persistente. Non �
 ## Comportamento
 
 - Backlog diviso in sezioni, ordinate per creazione. Un unico pulsante aggiunge attività scegliendo la sezione. Attività ordinate per inserimento, eliminabili, con titolo, descrizione, responsabile, priorità e stato.
+- Ogni sezione ha solo un codice (es. `DISC`, `ARCH`): il precedente campo `name`, ridondante, viene rimosso con una migrazione idempotente all’avvio. ID, associazioni delle attività e contatori rimangono invariati.
 - Ogni sezione ha un contatore atomico: `DISC-01`, `DISC-02`… Gli ID eliminati non vengono riutilizzati. Inserimenti concorrenti non producono duplicati.
 - Decisioni con domanda e risposta modificabili nella stessa pagina. Una risposta non vuota colloca la domanda in “Con risposta”. Gli spazi da soli sono una risposta vuota; `?` è invece testo e conta come risposta. Ogni modifica effettiva della risposta sposta la voce in fondo alla sezione corrispondente; una modifica della sola domanda conserva la posizione.
 - Documento Markdown modificabile con anteprima HTML sanificata e salvataggio esplicito.

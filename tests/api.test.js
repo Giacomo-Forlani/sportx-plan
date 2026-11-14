@@ -42,11 +42,9 @@ test("seed, numbering under concurrency, deletion, conflicts, ordering, persiste
   assert.equal(state.tasks.length, 30);
   assert.equal(state.decisions.length, 15);
   assert.ok(state.document.markdown.includes("OPES"));
-  const section = await request("/sections", "POST", {
-    code: "QA",
-    name: "Verifiche",
-  });
-  await request("/sections", "POST", { code: "qa", name: "Duplicata" }, 409);
+  const section = await request("/sections", "POST", { code: "QA" });
+  assert.deepEqual(Object.keys(section).sort(), ["code", "id"]);
+  await request("/sections", "POST", { code: "qa" }, 409);
   const tasks = await Promise.all(
     Array.from({ length: 12 }, () =>
       request("/tasks", "POST", input(section.id)),
@@ -140,7 +138,7 @@ test("seed, numbering under concurrency, deletion, conflicts, ordering, persiste
       "Content-Type": "application/json",
       Origin: "https://example.com",
     },
-    body: JSON.stringify({ code: "X", name: "X" }),
+    body: JSON.stringify({ code: "X" }),
   });
   assert.equal(origin.status, 403);
   await new Promise((r) => server.close(r));
@@ -151,6 +149,30 @@ test("seed, numbering under concurrency, deletion, conflicts, ordering, persiste
   assert.equal(state.document.revision, doc.revision);
   assert.ok(state.tasks.some((t) => t.id === "QA-13"));
   assert.equal(state.tasks.filter((t) => t.id === "DISC-01").length, 1);
+});
+
+test("migration removes legacy section name without losing existing data", async () => {
+  const before = await request("/state");
+  const counters = await pool.query(
+    "SELECT id,code,next_number FROM sections ORDER BY id",
+  );
+  await pool.query(
+    "ALTER TABLE sections ADD COLUMN name text NOT NULL DEFAULT 'Legacy'",
+  );
+  await pool.query("UPDATE sections SET name=code");
+  const { initialize } = await import("../services/db.js");
+  await initialize();
+  const columns = await pool.query(
+    "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='sections' AND column_name='name'",
+  );
+  assert.equal(columns.rowCount, 0);
+  assert.deepEqual(await request("/state"), before);
+  assert.deepEqual(
+    (await pool.query("SELECT id,code,next_number FROM sections ORDER BY id")).rows,
+    counters.rows,
+  );
+  await initialize(); // idempotent on already migrated databases
+  assert.deepEqual(await request("/state"), before);
 });
 
 test("Docker healthcheck and root/subpath deployment routes", async () => {

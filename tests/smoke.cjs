@@ -39,10 +39,20 @@ const puppeteer = require(
     await a.click('[data-view="backlog"]');
     await a.click("#add-section");
     await a.type("#section-code", "TEST");
-    await a.type("#section-name", "Test del team");
     await a.click("#section-form button[type=submit]");
     await a.waitForSelector("#section-dialog:not([open])");
+    await a.waitForFunction(
+      () => document.querySelector("#task-sections .backlog-section:last-child h2")?.textContent === "TEST",
+    );
+    assert.equal(
+      await a.$eval("#task-sections .backlog-section:last-child h2", (e) => e.textContent),
+      "TEST",
+    );
     await a.click("#add-task");
+    assert.equal(
+      await a.$eval("#editor-section option:last-child", (e) => e.textContent),
+      "TEST",
+    );
     await a.select(
       "#editor-section",
       await a.$eval("#editor-section option:last-child", (e) => e.value),

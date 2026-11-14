@@ -25,7 +25,7 @@ export async function initialize() {
         const code = task.id.replace(/-\d+$/, "");
         const number = Number(task.id.match(/\d+$/)[0]);
         const s = await client.query(
-          "INSERT INTO sections(code,name,next_number) VALUES($1,$1,$2) ON CONFLICT(code) DO UPDATE SET next_number=GREATEST(sections.next_number,$2) RETURNING id",
+          "INSERT INTO sections(code,next_number) VALUES($1,$2) ON CONFLICT(code) DO UPDATE SET next_number=GREATEST(sections.next_number,$2) RETURNING id",
           [code, number + 1],
         );
         await client.query(

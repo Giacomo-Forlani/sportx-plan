@@ -194,3 +194,33 @@ test("Docker healthcheck and root/subpath deployment routes", async () => {
   assert.equal(redirect.status, 308);
   assert.equal(redirect.headers.get("location"), "/sportx-plan/?from=dokploy");
 });
+
+
+test("MCP endpoint uses the same persistent API state and validation", async () => {
+  const old = process.env.SPORTX_MCP_TOKEN;
+  const secret = "integration-test-" + "s".repeat(48);
+  process.env.SPORTX_MCP_TOKEN = secret;
+  const origin = base.slice(0, -4);
+  const call = async (method, params = {}) => {
+    const response = await fetch(origin + "/mcp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + secret, Accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 11, method, params }),
+    });
+    assert.equal(response.status, 200);
+    return (await response.json()).result;
+  };
+  try {
+    const initialized = await call("initialize", { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "api-test", version: "1" } });
+    assert.equal(initialized.protocolVersion, "2025-11-25");
+    const tool = await call("tools/call", { name: "sportx_create_section", arguments: { code: "MCP" } });
+    assert.equal(tool.structuredContent.code, "MCP");
+    const state = await request("/state");
+    assert.ok(state.sections.some((x) => x.code === "MCP"));
+    const all = await call("tools/call", { name: "sportx_list_sections", arguments: {} });
+    assert.ok(JSON.parse(all.content[0].text).some((x) => x.code === "MCP"));
+  } finally {
+    if (old === undefined) delete process.env.SPORTX_MCP_TOKEN;
+    else process.env.SPORTX_MCP_TOKEN = old;
+  }
+});

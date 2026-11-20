@@ -1,6 +1,6 @@
 # SportX Plan
 
-Spazio di lavoro del team: https://chatgpt.giacomoforlani.com/sportx-plan/
+Spazio di lavoro del team: https://sportx.giacomoforlani.com/
 
 Frontend JavaScript senza framework, API Node.js e PostgreSQL persistente. Non è ancora prevista autenticazione, come richiesto. I dati sono condivisi da tutti i visitatori.
 
@@ -99,9 +99,9 @@ npm ci
 npm start
 ```
 
-## Deployment nel workspace corrente
+## Deployment legacy nel workspace (archivio operativo)
 
-Sorgenti: `/workspace/Website/sportx-plan`. Il servizio dedicato vive in `services/`, con dati in `services/postgres/data` sul volume persistente. PostgreSQL è raggiungibile solo tramite socket Unix privato con autenticazione peer, senza porta TCP. L'API ascolta su `127.0.0.1:8791`.
+Questa sezione descrive la precedente modalità di hosting nel container di lavoro, non la distribuzione primaria attuale su Dokploy.\n\nSorgenti legacy: `/workspace/Website/sportx-plan`. Il servizio dedicato vive in `services/`, con dati in `services/postgres/data` sul volume persistente. PostgreSQL è raggiungibile solo tramite socket Unix privato con autenticazione peer, senza porta TCP. L'API ascolta su `127.0.0.1:8791`.
 
 `services/startup.d/sportx-plan.sh` è scoperto all'avvio del container. Un lock impedisce avvii duplicati; il processo riavvia l'API se termina. Per l'avvio immediato eseguire lo script in un processo supervisionato o in una sessione indipendente. `PG_BIN` può selezionare una diversa installazione PostgreSQL.
 
@@ -131,3 +131,46 @@ git diff --check
 Impostare anche i parametri PostgreSQL necessari. Nel workspace: `PGHOST=/workspace/Website/sportx-plan/services/postgres/socket PGPORT=5544 PGUSER=codex`. I test browser accettano `PUPPETEER_MODULE` e `CHROME_BIN`; i valori predefiniti usano gli strumenti già installati nel workspace.
 
 Le verifiche coprono seed idempotente, numerazione concorrente, cancellazione senza riuso, conflitti, ordine delle decisioni, persistenza al riavvio dell'app, sanificazione Markdown e due sessioni browser con layout mobile. Il Compose è predisposto per Dokploy; il sito attuale usa ancora il servizio nativo del workspace. La preparazione del repository non esegue un deploy o una migrazione su Dokploy.
+
+## MCP remoto (agenti su altri computer)
+
+L'app fornisce un endpoint **Streamable HTTP** sul dominio esistente:
+
+- `https://sportx.giacomoforlani.com/mcp` (dominio dedicato)
+- `https://<dominio>/sportx-plan/mcp` (installazione con prefisso)
+
+Il server serve le revisioni MCP `2026-07-28` (stateless) e `2025-11-25` (compatibilità). Espone strumenti per leggere lo stato, elencare e creare sezioni, elencare/creare/aggiornare/eliminare attività, elencare/creare/aggiornare decisioni e leggere/aggiornare il documento Markdown. Gli strumenti riutilizzano le API applicative e le revisioni ottimistiche: un aggiornamento con revisione obsoleta fallisce e va ripetuto dopo aver riletto la voce. La cancellazione di un'attività richiede `confirm: true`.
+
+**Abilitazione:** generare un segreto casuale, ad esempio `openssl rand -hex 32`, e impostarlo come variabile privata `SPORTX_MCP_TOKEN` nell'ambiente di Dokploy del servizio Compose, quindi ridistribuire il servizio. Il Compose inoltra il segreto solo al container `app`, mai al database. Se la variabile manca o contiene meno di 32 byte, l'endpoint restituisce HTTP 503 senza offrire strumenti. Le chiamate senza token restituiscono HTTP 401. Non mettere il token in Git, nel frontend, nei log o in URL; usa HTTPS e trasmettilo tramite `Authorization: Bearer <TOKEN>`.
+
+In un client MCP remoto che supporta intestazioni HTTP personalizzate, configurare l'URL e l'header Bearer. Esempio schematico (sostituire il segnaposto con un riferimento sicuro al segreto):
+
+```json
+{
+  "mcpServers": {
+    "sportx": {
+      "type": "http",
+      "url": "https://sportx.giacomoforlani.com/mcp",
+      "headers": {
+        "Authorization": "Bearer <TOKEN_DA_GESTORE_SEGRETI>"
+      }
+    }
+  }
+}
+```
+
+Per **Codex CLI** su ciascun computer, impostare il token come variabile d'ambiente locale e configurare `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.sportx]
+url = "https://sportx.giacomoforlani.com/mcp"
+bearer_token_env_var = "SPORTX_MCP_TOKEN"
+```
+
+Il valore di `SPORTX_MCP_TOKEN` sul computer client deve coincidere con quello impostato nel servizio Dokploy. Non scrivere il valore del segreto nel TOML; va caricato dall'ambiente o da un gestore di segreti.
+
+Per i client che non consentono header Bearer configurabili occorre aggiungere un'autenticazione OAuth appropriata: l'endpoint attuale **non** implementa un authorization server OAuth. L'MCP utilizza connessioni HTTPS dirette al dominio, senza porte Docker extra e senza connessioni dirette a PostgreSQL. I client HTTP con `Origin` differente dall'host sono rifiutati; le richieste da agenti desktop non devono impostare un'origine web.
+
+**Limite importante:** l'autenticazione di questo endpoint protegge solo l'MCP. Le normali API e la dashboard web restano, per scelta progettuale preesistente, prive di login. **Non considerare il sito nel suo complesso protetto**: per dati riservati o uso multiutente va introdotta l'autenticazione delle API web con ruoli e autorizzazioni prima di un'esposizione non controllata.
+
+Test MCP isolati (nessun database richiesto): `node --test tests/mcp.test.js`. Test integrati delle API: `npm test` con un DB separato `_test` come descritto sopra.

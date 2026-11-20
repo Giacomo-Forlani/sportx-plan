@@ -4,6 +4,8 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { Readable } from "node:stream";
 
+class ToolInputError extends Error {}
+
 const identity = { name: "sportx-plan", version: "1.0.0" };
 const modern = "2026-07-28";
 const legacy = "2025-11-25";
@@ -95,40 +97,40 @@ async function readMessage(req) {
 }
 function inputObject(value) {
   if (value === undefined) return {};
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Argomenti non validi.");
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new ToolInputError("Argomenti non validi.");
   return value;
 }
 function identifier(value, type) {
   if (type === "task") {
     if (typeof value !== "string" || !/^[A-Z][A-Z0-9]*-[0-9]+$/.test(value))
-      throw new Error("ID attività non valido.");
+      throw new ToolInputError("ID attività non valido.");
     return value;
   }
-  if (!Number.isSafeInteger(value) || value < 1) throw new Error("ID non valido.");
+  if (!Number.isSafeInteger(value) || value < 1) throw new ToolInputError("ID non valido.");
   return String(value);
 }
 function requireRevision(a) {
-  if (!Number.isSafeInteger(a.revision) || a.revision < 1) throw new Error("Revisione non valida.");
+  if (!Number.isSafeInteger(a.revision) || a.revision < 1) throw new ToolInputError("Revisione non valida.");
 }
 function validateArguments(def, args) {
   const schema = def.inputSchema;
-  for (const key of schema.required) if (!(key in args)) throw new Error("Campo richiesto: " + key);
+  for (const key of schema.required) if (!(key in args)) throw new ToolInputError("Campo richiesto: " + key);
   for (const [key, value] of Object.entries(args)) {
     const rule = schema.properties[key];
-    if (!rule) throw new Error("Campo sconosciuto: " + key);
+    if (!rule) throw new ToolInputError("Campo sconosciuto: " + key);
     if (rule.type === "string" && (typeof value !== "string" || value.length > rule.maxLength))
-      throw new Error("Campo non valido: " + key);
+      throw new ToolInputError("Campo non valido: " + key);
     if (rule.type === "integer" && (!Number.isSafeInteger(value) || value < rule.minimum))
-      throw new Error("Campo non valido: " + key);
+      throw new ToolInputError("Campo non valido: " + key);
     if (rule.type === "boolean" && typeof value !== "boolean")
-      throw new Error("Campo non valido: " + key);
-    if (rule.enum && !rule.enum.includes(value)) throw new Error("Campo non valido: " + key);
-    if (rule.const !== undefined && value !== rule.const) throw new Error("Conferma esplicita richiesta.");
+      throw new ToolInputError("Campo non valido: " + key);
+    if (rule.enum && !rule.enum.includes(value)) throw new ToolInputError("Campo non valido: " + key);
+    if (rule.const !== undefined && value !== rule.const) throw new ToolInputError("Conferma esplicita richiesta.");
   }
 }
 async function runTool(name, args, callApi) {
   const def = mcpTools.find((x) => x.name === name);
-  if (!def) throw new Error("Strumento sconosciuto: " + name);
+  if (!def) throw new ToolInputError("Strumento sconosciuto: " + name);
   validateArguments(def, args);
   async function call(method, path, data) {
     const request = Readable.from(data === undefined ? [] : [JSON.stringify(data)]);
@@ -171,7 +173,7 @@ async function runTool(name, args, callApi) {
     case "sportx_update_document":
       requireRevision(args);
       return call("PUT", "/document", { revision: args.revision, markdown: args.markdown });
-    default: throw new Error("Strumento sconosciuto.");
+    default: throw new ToolInputError("Strumento sconosciuto.");
   }
 }
 function toolResult(data, failed = false) {
@@ -201,7 +203,7 @@ export async function handleMcp(req, res, callApi) {
     try {
       const origin = new URL(req.headers.origin);
       if (!["http:", "https:"].includes(origin.protocol) || origin.host !== req.headers.host)
-        throw new Error();
+        throw new ToolInputError();
     } catch {
       send(res, 403, { error: "Origine non consentita." });
       return;
@@ -248,7 +250,7 @@ export async function handleMcp(req, res, callApi) {
     let result;
     switch (msg.method) {
       case "initialize":
-        if (isModern) throw new Error("Initialize non previsto nel protocollo 2026.");
+        if (isModern) throw new ToolInputError("Initialize non previsto nel protocollo 2026.");
         result = {
           protocolVersion: ["2025-11-25", "2025-06-18", "2025-03-26"].includes(msg.params?.protocolVersion) ? msg.params.protocolVersion : legacy,
           capabilities: { tools: { listChanged: false } }, serverInfo: identity,
@@ -256,7 +258,7 @@ export async function handleMcp(req, res, callApi) {
         };
         break;
       case "server/discover":
-        if (!isModern) throw new Error("Discovery richiede il protocollo 2026-07-28.");
+        if (!isModern) throw new ToolInputError("Discovery richiede il protocollo 2026-07-28.");
         result = {
           supportedVersions: [modern, legacy],
           capabilities: { tools: { listChanged: false } },
@@ -277,7 +279,7 @@ export async function handleMcp(req, res, callApi) {
         try {
           result = toolResult(await runTool(msg.params.name, inputObject(msg.params.arguments), callApi));
         } catch (e) {
-          result = toolResult(e.status && e.status < 500 ? e.message : (e.status ? "Servizio temporaneamente non disponibile." : e.message), true);
+          result = toolResult((e instanceof ToolInputError || (e.status && e.status < 500)) ? e.message : "Servizio temporaneamente non disponibile.", true);
         }
         break;
       default:

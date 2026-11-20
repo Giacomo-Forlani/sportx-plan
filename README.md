@@ -159,6 +159,16 @@ In un client MCP remoto che supporta intestazioni HTTP personalizzate, configura
 }
 ```
 
+Per **Codex CLI** su ciascun computer, impostare il token come variabile d'ambiente locale e configurare `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.sportx]
+url = "https://sportx.giacomoforlani.com/mcp"
+bearer_token_env_var = "SPORTX_MCP_TOKEN"
+```
+
+Il valore di `SPORTX_MCP_TOKEN` sul computer client deve coincidere con quello impostato nel servizio Dokploy. Non scrivere il valore del segreto nel TOML; va caricato dall'ambiente o da un gestore di segreti.
+
 Per i client che non consentono header Bearer configurabili occorre aggiungere un'autenticazione OAuth appropriata: l'endpoint attuale **non** implementa un authorization server OAuth. L'MCP utilizza connessioni HTTPS dirette al dominio, senza porte Docker extra e senza connessioni dirette a PostgreSQL. I client HTTP con `Origin` differente dall'host sono rifiutati; le richieste da agenti desktop non devono impostare un'origine web.
 
 **Limite importante:** l'autenticazione di questo endpoint protegge solo l'MCP. Le normali API e la dashboard web restano, per scelta progettuale preesistente, prive di login. **Non considerare il sito nel suo complesso protetto**: per dati riservati o uso multiutente va introdotta l'autenticazione delle API web con ruoli e autorizzazioni prima di un'esposizione non controllata.

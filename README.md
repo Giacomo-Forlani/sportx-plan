@@ -6,6 +6,8 @@ Frontend JavaScript senza framework, API Node.js e PostgreSQL persistente. Non �
 
 ## Comportamento
 
+La dashboard supporta automaticamente **tema chiaro e scuro**, senza preferenze salvate nel browser. Il CSS utilizza la palette scura come base (fallback anche per browser privi di rilevamento delle preferenze) e applica quella chiara soltanto quando il sistema segnala `prefers-color-scheme: light`. La visualizzazione segue in tempo reale i cambiamenti del sistema, anche per sidebar, tabelle, moduli, dialog e anteprima Markdown. L'implementazione è interamente CSS: non usa cookie, localStorage o API nuove.
+
 - Backlog diviso in sezioni, ordinate per creazione. Un unico pulsante aggiunge attività scegliendo la sezione. Attività ordinate per inserimento, eliminabili, con titolo, descrizione, responsabile, priorità e stato.
 - Ogni sezione ha solo un codice (es. `DISC`, `ARCH`): il precedente campo `name`, ridondante, viene rimosso con una migrazione idempotente all’avvio. ID, associazioni delle attività e contatori rimangono invariati.
 - Ogni sezione ha un contatore atomico: `DISC-01`, `DISC-02`… Gli ID eliminati non vengono riutilizzati. Inserimenti concorrenti non producono duplicati.

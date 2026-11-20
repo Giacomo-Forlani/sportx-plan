@@ -148,7 +148,7 @@ Il server serve le revisioni MCP `2026-07-28` (stateless) e `2025-11-25` (compat
 **Metodo consigliato per un computer personale:** configurazione globale del server in `~/.codex/config.toml`. Non utilizzare `export`, che in genere non viene ereditato dalle applicazioni GUI avviate separatamente dal terminale.
 
 1. Aprire Codex nell'app desktop. In **Settings > MCP servers > Add server** scegliere **Streamable HTTP**, nome `sportx`, URL `https://sportx.giacomoforlani.com/mcp`, poi salvare. Se si preferisce, creare direttamente la configurazione nel file indicato al punto seguente.
-2. Aprire il file globale `~/.codex/config.toml` (Windows: `%USERPROFILE%\\.codex\\config.toml`). Se esiste già `[mcp_servers.sportx]`, **modificare quella sezione** senza duplicarla; altrimenti aggiungerla.
+2. Aprire il file globale `~/.codex/config.toml` (Windows: `%USERPROFILE%\.codex\config.toml`). Se esiste già `[mcp_servers.sportx]`, **modificare quella sezione** senza duplicarla; altrimenti aggiungerla.
 3. Configurare l'header Bearer con `http_headers`, sostituendo **solo** `INCOLLA_QUI_IL_TOKEN` con il valore completo di `SPORTX_MCP_TOKEN` impostato su Dokploy:
 
 ```toml

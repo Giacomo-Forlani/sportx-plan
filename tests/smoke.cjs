@@ -36,7 +36,7 @@ const puppeteer = require(
         () => document.querySelector("#stat-total").textContent === "30",
       );
     }
-    // The OS preference controls the whole dashboard; with no preference the default is dark.
+    // The OS preference controls the dashboard. Chromium maps no-preference to light.
     const colors = async (preference) => {
       await a.emulateMediaFeatures([
         { name: "prefers-color-scheme", value: preference },
@@ -64,8 +64,8 @@ const puppeteer = require(
     assert.notEqual(light.sidebar, dark.sidebar);
     assert.notEqual(light.text, dark.text);
     const noPreference = await colors("no-preference");
-    assert.equal(noPreference.scheme, "dark");
-    assert.equal(noPreference.background, dark.background);
+    assert.equal(noPreference.scheme, "light");
+    assert.equal(noPreference.background, light.background);
     await a.emulateMediaFeatures([
       { name: "prefers-color-scheme", value: "dark" },
     ]);

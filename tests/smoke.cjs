@@ -36,6 +36,39 @@ const puppeteer = require(
         () => document.querySelector("#stat-total").textContent === "30",
       );
     }
+    // The OS preference controls the dashboard. Chromium maps no-preference to light.
+    const colors = async (preference) => {
+      await a.emulateMediaFeatures([
+        { name: "prefers-color-scheme", value: preference },
+      ]);
+      return a.evaluate(() => {
+        const style = (selector) => getComputedStyle(document.querySelector(selector));
+        return {
+          scheme: style("html").colorScheme,
+          background: style("body").backgroundColor,
+          sidebar: style(".sidebar").backgroundColor,
+          panel: style(".panel").backgroundColor,
+          field: style("#task-search").backgroundColor,
+          text: style("body").color,
+        };
+      });
+    };
+    const dark = await colors("dark");
+    assert.equal(dark.scheme, "dark");
+    assert.equal(dark.background, "rgb(12, 20, 34)");
+    assert.equal(dark.sidebar, dark.panel);
+    assert.equal(dark.panel, dark.field);
+    const light = await colors("light");
+    assert.equal(light.scheme, "light");
+    assert.equal(light.background, "rgb(246, 247, 249)");
+    assert.notEqual(light.sidebar, dark.sidebar);
+    assert.notEqual(light.text, dark.text);
+    const noPreference = await colors("no-preference");
+    assert.equal(noPreference.scheme, "light");
+    assert.equal(noPreference.background, light.background);
+    await a.emulateMediaFeatures([
+      { name: "prefers-color-scheme", value: "dark" },
+    ]);
     await a.click('[data-view="backlog"]');
     await a.click("#add-section");
     await a.type("#section-code", "TEST");

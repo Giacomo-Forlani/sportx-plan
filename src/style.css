@@ -41,8 +41,8 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
-/* Prefer the operating system's light appearance when it is explicitly reported.
-   If the media feature is unavailable, the base dark palette remains in effect. */
+/* Use light only when the browser reports it. Some browsers interpret an absent
+   OS preference as light; when this media feature is unsupported, dark remains. */
 @media (prefers-color-scheme: light) {
   :root {
     color-scheme: light;

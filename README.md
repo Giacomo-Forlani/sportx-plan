@@ -1,6 +1,6 @@
 # SportX Plan
 
-Spazio di lavoro del team: https://chatgpt.giacomoforlani.com/sportx-plan/
+Spazio di lavoro del team: https://sportx.giacomoforlani.com/
 
 Frontend JavaScript senza framework, API Node.js e PostgreSQL persistente. Non è ancora prevista autenticazione, come richiesto. I dati sono condivisi da tutti i visitatori.
 
@@ -99,9 +99,9 @@ npm ci
 npm start
 ```
 
-## Deployment nel workspace corrente
+## Deployment legacy nel workspace (archivio operativo)
 
-Sorgenti: `/workspace/Website/sportx-plan`. Il servizio dedicato vive in `services/`, con dati in `services/postgres/data` sul volume persistente. PostgreSQL è raggiungibile solo tramite socket Unix privato con autenticazione peer, senza porta TCP. L'API ascolta su `127.0.0.1:8791`.
+Questa sezione descrive la precedente modalità di hosting nel container di lavoro, non la distribuzione primaria attuale su Dokploy.\n\nSorgenti legacy: `/workspace/Website/sportx-plan`. Il servizio dedicato vive in `services/`, con dati in `services/postgres/data` sul volume persistente. PostgreSQL è raggiungibile solo tramite socket Unix privato con autenticazione peer, senza porta TCP. L'API ascolta su `127.0.0.1:8791`.
 
 `services/startup.d/sportx-plan.sh` è scoperto all'avvio del container. Un lock impedisce avvii duplicati; il processo riavvia l'API se termina. Per l'avvio immediato eseguire lo script in un processo supervisionato o in una sessione indipendente. `PG_BIN` può selezionare una diversa installazione PostgreSQL.
 

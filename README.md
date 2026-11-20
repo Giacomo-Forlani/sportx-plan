@@ -143,33 +143,61 @@ Il server serve le revisioni MCP `2026-07-28` (stateless) e `2025-11-25` (compat
 
 **Abilitazione:** generare un segreto casuale, ad esempio `openssl rand -hex 32`, e impostarlo come variabile privata `SPORTX_MCP_TOKEN` nell'ambiente di Dokploy del servizio Compose, quindi ridistribuire il servizio. Il Compose inoltra il segreto solo al container `app`, mai al database. Se la variabile manca o contiene meno di 32 byte, l'endpoint restituisce HTTP 503 senza offrire strumenti. Le chiamate senza token restituiscono HTTP 401. Non mettere il token in Git, nel frontend, nei log o in URL; usa HTTPS e trasmettilo tramite `Authorization: Bearer <TOKEN>`.
 
-In un client MCP remoto che supporta intestazioni HTTP personalizzate, configurare l'URL e l'header Bearer. Esempio schematico (sostituire il segnaposto con un riferimento sicuro al segreto):
+### Codex GUI (app desktop) — configurazione permanente
 
-```json
-{
-  "mcpServers": {
-    "sportx": {
-      "type": "http",
-      "url": "https://sportx.giacomoforlani.com/mcp",
-      "headers": {
-        "Authorization": "Bearer <TOKEN_DA_GESTORE_SEGRETI>"
-      }
-    }
-  }
-}
-```
+**Metodo consigliato per un computer personale:** configurazione globale del server in `~/.codex/config.toml`. Non utilizzare `export`, che in genere non viene ereditato dalle applicazioni GUI avviate separatamente dal terminale.
 
-Per **Codex CLI** su ciascun computer, impostare il token come variabile d'ambiente locale e configurare `~/.codex/config.toml`:
+1. Aprire Codex nell'app desktop. In **Settings > MCP servers > Add server** scegliere **Streamable HTTP**, nome `sportx`, URL `https://sportx.giacomoforlani.com/mcp`, poi salvare. Se si preferisce, creare direttamente la configurazione nel file indicato al punto seguente.
+2. Aprire il file globale `~/.codex/config.toml` (Windows: `%USERPROFILE%\\.codex\\config.toml`). Se esiste già `[mcp_servers.sportx]`, **modificare quella sezione** senza duplicarla; altrimenti aggiungerla.
+3. Configurare l'header Bearer con `http_headers`, sostituendo **solo** `INCOLLA_QUI_IL_TOKEN` con il valore completo di `SPORTX_MCP_TOKEN` impostato su Dokploy:
 
 ```toml
 [mcp_servers.sportx]
 url = "https://sportx.giacomoforlani.com/mcp"
-bearer_token_env_var = "SPORTX_MCP_TOKEN"
+http_headers = { Authorization = "Bearer INCOLLA_QUI_IL_TOKEN" }
 ```
 
-Il valore di `SPORTX_MCP_TOKEN` sul computer client deve coincidere con quello impostato nel servizio Dokploy. Non scrivere il valore del segreto nel TOML; va caricato dall'ambiente o da un gestore di segreti.
+4. Salvare il file, usare **Restart** dalla schermata MCP o riavviare completamente Codex e verificare che `sportx` risulti connesso e mostri gli strumenti disponibili. Verificare con una **lettura non distruttiva**, ad esempio chiedendo di elencare le sezioni SportX.
 
-Per i client che non consentono header Bearer configurabili occorre aggiungere un'autenticazione OAuth appropriata: l'endpoint attuale **non** implementa un authorization server OAuth. L'MCP utilizza connessioni HTTPS dirette al dominio, senza porte Docker extra e senza connessioni dirette a PostgreSQL. I client HTTP con `Origin` differente dall'host sono rifiutati; le richieste da agenti desktop non devono impostare un'origine web.
+`http_headers` invia il valore letterale su ogni richiesta e rimane salvato tra i riavvii; **non** va impostato `bearer_token_env_var` contemporaneamente per lo stesso header. Lo spazio dopo `Bearer` è obbligatorio. Il metodo salva il token **in chiaro sul computer**, quindi proteggere `config.toml` con i permessi del proprio utente, non condividerlo e non copiarlo nella repository.
+
+**Alternativa se si usa già un gestore di segreti o una variabile di ambiente permanente visibile alla GUI:** sostituire `http_headers` con `bearer_token_env_var = "SPORTX_MCP_TOKEN"` nello stesso blocco e configurare la variabile nell'ambiente del processo Codex. Un semplice `export` in un terminale non basta per un'app desktop avviata altrove. La variabile contiene il token vero; il TOML contiene **solo il nome** della variabile.
+
+Documentazione ufficiale: [OpenAI – Collegare Codex a MCP](https://learn.chatgpt.com/docs/extend/mcp) e [OpenAI – Riferimento config.toml](https://learn.chatgpt.com/docs/config-file/config-reference).
+
+### Claude Desktop (Chat/Cowork) — connettore remoto persistente
+
+Per Claude nella **GUI Chat/Desktop**, usare un **Custom connector Web**, non `claude_desktop_config.json` e non un bridge `npx`, perché SportX è un server remoto HTTPS:
+
+1. Aprire **Customize > Connectors** (o la sezione Connectors in Claude Desktop), poi **Add > Custom > Web** / **Add custom connector**; la dicitura varia leggermente tra le versioni.
+2. Impostare nome `SportX` e URL `https://sportx.giacomoforlani.com/mcp`; proseguire.
+3. Alla voce **Authentication** selezionare **No sign-in**: il server SportX attuale **non supporta OAuth**, ma richiede una credenziale fissa tramite header.
+4. Se disponibile, aprire **Request headers** e aggiungere un header **Required**:
+   - Nome: `Authorization` (o `authorization`)
+   - Valore **completo**: `Bearer INCOLLA_QUI_IL_TOKEN`
+   Sostituire il segnaposto con lo stesso token di Dokploy; Claude **non** aggiunge automaticamente il prefisso `Bearer `.
+5. Salvare con **Add**. In chat abilitare **SportX** dal menu `+` > **Connectors**, quindi provare una richiesta di sola lettura, ad esempio «Elenca le sezioni SportX». Il connettore rimane configurato nell'account Claude anche dopo il riavvio; può essere necessario riabilitarlo in singole conversazioni.
+
+**Disponibilità:** secondo la documentazione Anthropic, **Request headers** è in **beta** e può non essere disponibile in tutti gli account/organizzazioni. Se il campo non appare, **Claude Chat/Cowork non può collegarsi direttamente a questa implementazione SportX con sola autenticazione Bearer**. Non scegliere «Sign in now» sperando che funzioni: richiederebbe l'aggiunta di un vero authorization server OAuth a SportX. Le connessioni Claude remote partono dall'infrastruttura cloud Anthropic, quindi il dominio deve essere pubblicamente raggiungibile su HTTPS porta 443.
+
+**Claude Desktop, scheda Code (Claude Code):** i connettori legati al proprio account Claude sono utilizzabili anche nelle sessioni Code compatibili. Se **Request headers** non è disponibile ma serve esclusivamente la scheda Code, si può in alternativa configurare **una sola volta** Claude Code, con installazione locale e token persistente:
+
+```bash
+claude mcp add --transport http --scope user sportx https://sportx.giacomoforlani.com/mcp --header "Authorization: Bearer INCOLLA_QUI_IL_TOKEN"
+```
+
+Il comando aggiunge la connessione all'ambito utente (`~/.claude.json`) e la rende disponibile alle sessioni **Claude Code**, inclusa la scheda Code desktop; **non** è un metodo per abilitarla nella chat Claude Desktop. Sostituire il segnaposto con il token e considerare che il comando e la configurazione possono esporlo in chiaro nella cronologia shell e nei file locali. Verificare dalla scheda Code o con `claude mcp list`. Non inserire la configurazione con token in `.mcp.json` della repository.
+
+Fonti ufficiali: [Anthropic – Aggiungere un connettore personalizzato](https://claude.com/docs/connectors/custom/add-unlisted), [Anthropic – Connettori MCP remoti](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp), [Anthropic – Claude Code Desktop](https://code.claude.com/docs/en/desktop) e [Anthropic – Configurazione MCP Claude Code](https://code.claude.com/docs/en/mcp).
+
+### Verifica e protezione del token
+
+- Il token configurato sui client deve essere **identico** a `SPORTX_MCP_TOKEN` nell'ambiente Dokploy del servizio `app`. Se viene rigenerato, aggiornare Dokploy **e tutti i client**, poi ridistribuire il servizio.
+- La chiave **non va mai** inserita in Git, negli URL, negli esempi condivisi o nei log. L'esempio `INCOLLA_QUI_IL_TOKEN` non è una chiave reale.
+- In caso di errore **401** verificare header, prefisso `Bearer ` e corrispondenza del token; **503** indica che il token non è configurato correttamente lato server; **404** suggerisce un URL/deploy errato.
+- Queste istruzioni riguardano la **configurazione dei client**. Il funzionamento esterno end-to-end va verificato dopo il deploy su Dokploy; il merge Git da solo non prova che l'endpoint sia attivo.
+
+L'MCP utilizza connessioni HTTPS dirette al dominio, senza porte Docker extra e senza connessioni dirette a PostgreSQL. I client HTTP con `Origin` differente dall'host sono rifiutati; le richieste da agenti desktop non devono impostare un'origine web.
 
 **Limite importante:** l'autenticazione di questo endpoint protegge solo l'MCP. Le normali API e la dashboard web restano, per scelta progettuale preesistente, prive di login. **Non considerare il sito nel suo complesso protetto**: per dati riservati o uso multiutente va introdotta l'autenticazione delle API web con ruoli e autorizzazioni prima di un'esposizione non controllata.
 

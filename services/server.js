@@ -1,6 +1,7 @@
 import http from "node:http";
 import { readFile } from "node:fs/promises";
 import { pool, initialize } from "./db.js";
+import { handleMcp } from "./mcp.js";
 import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
 const statuses = [
@@ -246,6 +247,10 @@ export async function start(port = Number(process.env.PORT || 8791)) {
         return;
       }
       let path = url.pathname.replace(/^\/sportx-plan(?=\/|$)/, "") || "/";
+      if (path === "/mcp") {
+        await handleMcp(req, res, api);
+        return;
+      }
       if (path.startsWith("/api/")) {
         if (!["GET", "HEAD"].includes(req.method)) {
           if (!req.headers["content-type"]?.startsWith("application/json"))

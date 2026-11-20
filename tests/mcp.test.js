@@ -112,7 +112,7 @@ test("read filters, writes, revisions and explicit confirmation", async () => {
   assert.equal(removed.data.result.structuredContent.id, "ARCH-01");
   const conflicted = await send("tools/call", {
     name: "sportx_update_task",
-    arguments: { ...state.tasks[0], id: "ARCH-01" },
+    arguments: { id: "ARCH-01", revision: 2, title: "Schema", description: "", owner: "", status: "Da fare", priority: "P1" },
   });
   assert.equal(conflicted.data.result.isError, true);
   assert.match(conflicted.data.result.content[0].text, /Revisione/);

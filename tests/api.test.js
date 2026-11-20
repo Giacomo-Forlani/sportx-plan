@@ -200,7 +200,7 @@ test("MCP endpoint uses the same persistent API state and validation", async () 
   const old = process.env.SPORTX_MCP_TOKEN;
   const secret = "integration-test-" + "s".repeat(48);
   process.env.SPORTX_MCP_TOKEN = secret;
-  const origin = base.replace(/\\/api$/, "");
+  const origin = base.slice(0, -4);
   const call = async (method, params = {}) => {
     const response = await fetch(origin + "/mcp", {
       method: "POST",

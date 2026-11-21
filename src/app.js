@@ -5,6 +5,9 @@
     editing = null,
     documentRevision = null,
     documentDirty = false,
+    documentSaving = false,
+    documentSaveBlocked = false,
+    documentSaveTimer = null,
     previewMarkdown = null,
     pendingPreviewMarkdown = null,
     previewRequestId = 0,
@@ -39,13 +42,64 @@
     } catch {
       throw new Error("Il servizio non è raggiungibile. Riprova tra poco.");
     }
-    if (!response.ok)
-      throw new Error(result.error || "Salvataggio non riuscito.");
+    if (!response.ok) {
+      const error = new Error(result.error || "Salvataggio non riuscito.");
+      error.status = response.status;
+      throw error;
+    }
     return result;
+  }
+  function documentStatus(text, error = false) {
+    $("document-status").textContent = text;
+    $("document-status").classList.toggle("error", error);
+  }
+  function scheduleDocumentSave(delay = 600) {
+    clearTimeout(documentSaveTimer);
+    if (!documentDirty || documentSaveBlocked || documentRevision === null)
+      return;
+    documentSaveTimer = setTimeout(() => {
+      documentSaveTimer = null;
+      void flushDocumentSave();
+    }, delay);
+  }
+  async function flushDocumentSave() {
+    clearTimeout(documentSaveTimer);
+    documentSaveTimer = null;
+    if (!documentDirty || documentSaving || documentSaveBlocked || documentRevision === null)
+      return;
+    documentSaving = true;
+    const markdown = $("document-text").value;
+    const revision = documentRevision;
+    documentStatus("Salvataggio…");
+    try {
+      const result = await api("/document", "PUT", { markdown, revision });
+      documentRevision = result.revision;
+      documentDirty = $("document-text").value !== markdown;
+      if (documentDirty) {
+        documentStatus("Modifiche in corso…");
+        // Serialize writes: a later edit uses the revision returned by this save.
+        scheduleDocumentSave(250);
+      } else documentStatus("Salvato");
+    } catch (e) {
+      documentDirty = true;
+      if (e.status === 409) {
+        documentSaveBlocked = true;
+        documentStatus(
+          "Conflitto: il documento è cambiato altrove. Copia le tue modifiche e ricarica la pagina.",
+          true,
+        );
+      } else {
+        documentStatus("Salvataggio non riuscito. Nuovo tentativo automatico…", true);
+        scheduleDocumentSave(3000);
+      }
+    } finally {
+      documentSaving = false;
+    }
   }
   function view(name) {
     if (!["panoramica", "backlog", "decisioni", "documento"].includes(name))
       name = "panoramica";
+    if (name !== "documento" && documentDirty) void flushDocumentSave();
     document
       .querySelectorAll(".view")
       .forEach((n) => n.classList.toggle("hidden", n.id !== "view-" + name));
@@ -87,9 +141,11 @@
     $("document-preview").classList.toggle("hidden", !preview);
     $("document-text").classList.toggle("hidden", preview);
     $("document-editor-label").classList.toggle("hidden", preview);
-    $("save-document").classList.toggle("hidden", preview);
     $("preview-document").textContent = preview ? "Modifica testo" : "Anteprima";
-    if (preview) void updateDocumentPreview();
+    if (preview) {
+      void updateDocumentPreview();
+      if (documentDirty) void flushDocumentSave();
+    }
     else {
       ++previewRequestId;
       pendingPreviewMarkdown = null;
@@ -105,12 +161,24 @@
       renderTasks();
       if (force || !document.activeElement.closest(".decision"))
         renderDecisions();
-      if (!documentDirty) {
-        $("document-text").value = state.document.markdown;
-        documentRevision = state.document.revision;
-      } else if (documentRevision !== state.document.revision) {
-        $("document-status").textContent =
-          "Un collega ha modificato il documento. Copia il tuo testo prima di ricaricare.";
+      if (!documentDirty && !documentSaving) {
+        // A snapshot initiated before our last save may have an older revision.
+        if (documentRevision === null || state.document.revision >= documentRevision) {
+          $("document-text").value = state.document.markdown;
+          documentRevision = state.document.revision;
+          if (!$("document-status").textContent) documentStatus("Salvato");
+        }
+      } else if (
+        !documentSaving &&
+        documentRevision !== null &&
+        state.document.revision > documentRevision
+      ) {
+        documentSaveBlocked = true;
+        clearTimeout(documentSaveTimer);
+        documentStatus(
+          "Conflitto: il documento è cambiato altrove. Copia le tue modifiche e ricarica la pagina.",
+          true,
+        );
       }
       // Keep read-only preview in sync with updates from other team members.
       void updateDocumentPreview();
@@ -443,28 +511,17 @@
   };
   $("document-text").oninput = () => {
     documentDirty = true;
-    $("document-status").textContent = "Modifiche da salvare";
-  };
-  $("save-document").onclick = () => {
-    if (!state) return;
-    const markdown = $("document-text").value,
-      revision = documentRevision;
-    save(
-      async () => {
-        const result = await api("/document", "PUT", { markdown, revision });
-        documentRevision = result.revision;
-      },
-      null,
-      () => {
-        documentDirty = $("document-text").value !== markdown;
-        if (!documentDirty) $("document-status").textContent = "Salvato";
-      },
-    );
+    if (documentSaveBlocked) return;
+    documentStatus("Modifiche in corso…");
+    scheduleDocumentSave();
   };
   $("preview-document").onclick = () =>
     setDocumentMode($("document-preview").classList.contains("hidden"));
+  window.addEventListener("visibilitychange", () => {
+    if (document.hidden && documentDirty) void flushDocumentSave();
+  });
   window.addEventListener("beforeunload", (e) => {
-    if (documentDirty || decisionDrafts.size) {
+    if (documentDirty || documentSaving || decisionDrafts.size) {
       e.preventDefault();
       e.returnValue = "";
     }

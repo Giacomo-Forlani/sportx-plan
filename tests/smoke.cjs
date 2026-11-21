@@ -188,7 +188,7 @@ const puppeteer = require(
     await a.waitForSelector("#document-preview:not(.hidden) h1");
     assert.equal(await a.$eval("#preview-document", (e) => e.textContent.trim()), "Modifica testo");
     assert.equal(await a.$eval("#document-text", (e) => e.classList.contains("hidden")), true);
-    assert.equal(await a.$eval("#save-document", (e) => e.classList.contains("hidden")), true);
+    assert.equal(await a.$("#save-document"), null);
     await a.click("#preview-document");
     await a.waitForSelector("#document-text:not(.hidden)");
     assert.equal(await a.$eval("#preview-document", (e) => e.textContent.trim()), "Anteprima");
@@ -196,10 +196,9 @@ const puppeteer = require(
       e.value = "# Test condiviso\n\n**Testo Markdown**";
       e.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    await a.click("#save-document");
     await a.waitForFunction(
-      () =>
-        document.querySelector("#document-status").textContent === "Salvato",
+      () => document.querySelector("#document-status").textContent === "Salvato",
+      { timeout: 12000 },
     );
     await a.click("#preview-document");
     await a.waitForSelector("#document-preview:not(.hidden) strong");
@@ -218,17 +217,76 @@ const puppeteer = require(
     await a.waitForSelector("#document-preview:not(.hidden) strong");
     assert.equal(await a.$eval("#preview-document", (e) => e.textContent.trim()), "Modifica testo");
 
-    // Live preview follows changes saved in another browser without opening the editor.
+    // A second edit made while the first autosave is in flight must not be lost.
     await a.click("#preview-document");
+    await a.evaluate(() => {
+      const original = window.fetch.bind(window);
+      let delayNextDocumentWrite = true;
+      window.fetch = async (...args) => {
+        if (
+          delayNextDocumentWrite &&
+          String(args[0]).endsWith("/api/document") &&
+          args[1]?.method === "PUT"
+        ) {
+          delayNextDocumentWrite = false;
+          await new Promise((resolve) => setTimeout(resolve, 900));
+        }
+        return original(...args);
+      };
+    });
+    await a.$eval("#document-text", (e) => {
+      e.value = "# Documento aggiornato\n\n**Prima versione**";
+      e.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await a.waitForFunction(
+      () => document.querySelector("#document-status").textContent === "Salvataggio…",
+      { timeout: 12000 },
+    );
     await a.$eval("#document-text", (e) => {
       e.value = "# Documento aggiornato\n\n**Da un collega**";
       e.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    await a.click("#save-document");
-    await a.waitForFunction(() => document.querySelector("#document-status").textContent === "Salvato");
+    await a.waitForFunction(
+      () => document.querySelector("#document-status").textContent === "Salvato",
+      { timeout: 12000 },
+    );
     await b.waitForFunction(
       () => document.querySelector("#document-preview strong")?.textContent === "Da un collega",
       { timeout: 12000 },
+    );
+    const savedDocument = await a.evaluate(async () => {
+      const r = await fetch("./api/state");
+      return (await r.json()).document;
+    });
+    assert.equal(savedDocument.markdown, "# Documento aggiornato\n\n**Da un collega**");
+
+    // A revision conflict never silently overwrites the shared document or the local draft.
+    await a.evaluate(() => {
+      const original = window.fetch.bind(window);
+      window.fetch = (...args) => {
+        if (String(args[0]).endsWith("/api/document") && args[1]?.method === "PUT") {
+          return Promise.resolve(
+            new Response(JSON.stringify({ error: "Revisione non valida." }), {
+              status: 409,
+              headers: { "Content-Type": "application/json" },
+            }),
+          );
+        }
+        return original(...args);
+      };
+    });
+    await a.$eval("#document-text", (e) => {
+      e.value = "# Bozza in conflitto";
+      e.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await a.waitForFunction(
+      () => document.querySelector("#document-status").textContent.includes("Conflitto:"),
+      { timeout: 12000 },
+    );
+    assert.equal(await a.$eval("#document-text", (e) => e.value), "# Bozza in conflitto");
+    assert.equal(
+      (await a.evaluate(async () => (await (await fetch("./api/state")).json()).document.markdown)),
+      savedDocument.markdown,
     );
     await a.setViewport({ width: 375, height: 812 });
     for (const view of ["panoramica", "backlog", "decisioni", "documento"]) {

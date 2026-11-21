@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS sections (
  id bigserial PRIMARY KEY, code text NOT NULL UNIQUE,
  next_number integer NOT NULL DEFAULT 1 CHECK(next_number > 0)
 );
+-- Existing installations receive a revision for safe concurrent section deletion.
+ALTER TABLE sections ADD COLUMN IF NOT EXISTS revision integer NOT NULL DEFAULT 1;
 -- Remove the legacy duplicate label on existing installations.
 ALTER TABLE sections DROP COLUMN IF EXISTS name;
 CREATE TABLE IF NOT EXISTS tasks (

@@ -1,12 +1,10 @@
 "use strict";
 (() => {
   const $ = (id) => document.getElementById(id);
-  const storageKey = "sportx.conversations.developer";
   const date = new Intl.DateTimeFormat("it-IT", { dateStyle: "medium", timeStyle: "short" });
   const threadUrl = (id) => "#conversazioni/" + id;
   const drafts = new Map();
   let sender = "";
-  try { sender = localStorage.getItem(storageKey) ?? ""; } catch { /* Storage may be disabled. */ }
   let board, thread, activeId, visible;
   let generation = 0;
   let loading = false;
@@ -114,7 +112,6 @@
   function remember(author) {
     if (!author) return;
     sender = author;
-    try { localStorage.setItem(storageKey, sender); } catch { /* A choice can still be used in this tab. */ }
   }
 
   function syncReplyActions() {

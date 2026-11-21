@@ -30,7 +30,7 @@ async function registerDeveloper(data, claimedId, { field, Problem }) {
     "SELECT id,name FROM conversation_developers WHERE name_key=$1", [nameKey],
   );
   if (existing && (!claimedId || existing.id === claimedId)) return existing;
-  if (existing) throw new Problem(409, "Per questo nome imposta SPORTX_DEVELOPER=" + existing.id + ".");
+  if (existing) throw new Problem(409, "Questo nome è già registrato con ID " + existing.id + ". Seleziona il profilo esistente.");
   throw new Problem(409, "Identificativo già assegnato. Usa un nome più specifico o un identificativo diverso.");
 }
 
@@ -137,6 +137,8 @@ async function threadDetail(directory, id, Problem, memberId = null) {
 
 export async function conversationApi(req, path, { body, field, Problem }) {
   const claimedId = req.headers?.["x-sportx-developer"];
+  if (req.method === "GET" && path === "/conversations/developers")
+    return developers();
   if (req.method === "POST" && path === "/conversations/developers")
     return registerDeveloper(await body(req), claimedId, { field, Problem });
 
@@ -150,7 +152,7 @@ export async function conversationApi(req, path, { body, field, Problem }) {
     return threadDetail(await developers(), boardThread[1], Problem);
 
   if (typeof claimedId !== "string" || !developerId.test(claimedId))
-    throw new Problem(400, "Scegli il mittente oppure imposta SPORTX_DEVELOPER nell’ambiente dell’agente.");
+    throw new Problem(400, "Seleziona lo sviluppatore; nei tool MCP passa il suo ID nel parametro developer.");
   const directory = await developers();
   const member = directory.find(({ id }) => id === claimedId);
   if (!member)

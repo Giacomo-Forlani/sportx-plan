@@ -324,14 +324,16 @@ test("conversations share REST and MCP profiles and confirm only the current pro
   const mcp = async (user, tool, args) => {
     const response = await fetch(base.slice(0, -4) + "/mcp", {
       method: "POST",
-      headers: { ...headers(user), Authorization: "Bearer " + secret },
+      headers: { ...headers(null), Authorization: "Bearer " + secret },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call",
-        params: { name: "sportx_" + tool, arguments: args } }),
+        params: { name: "sportx_" + tool,
+          arguments: ["register_developer", "list_developers"].includes(tool)
+            ? args : { ...args, developer: user } } }),
     });
     assert.equal(response.status, 200);
     const { result } = await response.json();
     assert.ok(!result.isError, JSON.stringify(result));
-    return result.structuredContent;
+    return result.structuredContent ?? JSON.parse(result.content[0].text);
   };
 
   const emptyBoard = await inbox(null, "/board");
@@ -340,7 +342,9 @@ test("conversations share REST and MCP profiles and confirm only the current pro
   assert.deepEqual(emptyBoard.threads, []);
   await inbox(null, "", undefined, 400);
   await inbox("ada", "", undefined, 404);
-  assert.deepEqual(await mcp("ada", "register_developer", { name: "Ada Rossi" }),
+  assert.deepEqual(await inbox("ada", "/developers", { name: "Ada Rossi" }),
+    { id: "ada", name: "Ada Rossi" });
+  assert.deepEqual(await mcp(null, "register_developer", { name: "Ada Rossi" }),
     { id: "ada", name: "Ada Rossi" });
   assert.deepEqual(await inbox(null, "/developers", { name: "  ada   rossi  " }),
     { id: "ada", name: "Ada Rossi" });
@@ -348,6 +352,8 @@ test("conversations share REST and MCP profiles and confirm only the current pro
     { id: "luca-bianchi", name: "Luca Bianchi" });
   await inbox("luca", "/developers", { name: "Luca Bianchi" }, 409);
   await inbox("marta", "/developers", { name: "Marta Verdi" });
+  assert.deepEqual((await mcp(null, "list_developers", {})).map(({ id }) => id),
+    ["ada", "luca-bianchi", "marta"]);
   const unauthenticated = await fetch(base.slice(0, -4) + "/mcp", {
     method: "POST",
     headers: headers("ada"),
@@ -407,4 +413,18 @@ test("conversations share REST and MCP profiles and confirm only the current pro
   await inbox("ada", path + "/read", { through_id: detail.messages.at(-1).id });
   await inbox("ada", path + "/read", { through_id: first.messages[0].id });
   assert.equal((await inbox("ada", path)).unread, false);
+  assert.deepEqual(await mcp(null, "register_developer", { name: "Paolo Neri" }),
+    { id: "paolo-neri", name: "Paolo Neri" });
+  assert.equal((await mcp("paolo-neri", "list_conversations", { unread_only: true })).me.id,
+    "paolo-neri");
+  const missingDeveloper = await fetch(base.slice(0, -4) + "/mcp", {
+    method: "POST",
+    headers: { ...headers(null), Authorization: "Bearer " + secret },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 4, method: "tools/call",
+      params: { name: "sportx_list_conversations", arguments: {} } }),
+  });
+  assert.equal(missingDeveloper.status, 200);
+  const { result: missingResult } = await missingDeveloper.json();
+  assert.equal(missingResult.isError, true);
+  assert.match(missingResult.content[0].text, /developer/);
 });

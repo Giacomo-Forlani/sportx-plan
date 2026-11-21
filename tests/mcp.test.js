@@ -21,6 +21,12 @@ async function api(req, path) {
   }
   calls.push({ method: req.method, path, input });
   if (req.method === "GET" && path === "/state") return state;
+  if (req.method === "GET" && path === "/conversations/developers")
+    return [{ id: "ada", name: "Ada Rossi" }];
+  if (req.method === "GET" && path === "/conversations") {
+    assert.equal(req.headers["x-sportx-developer"], "ada");
+    return { me: { id: "ada", name: "Ada Rossi" }, members: [], threads: [] };
+  }
   if (path === "/sections" && req.method === "POST") return { id: 2, code: input.code, revision: 1 };
   if (path === "/sections/1" && req.method === "DELETE") return { id: 1, code: "ARCH" };
   if (path === "/tasks" && req.method === "POST") return { id: "ARCH-02", ...input };
@@ -81,15 +87,30 @@ test("legacy initialize and complete tools catalogue", async () => {
   assert.equal(hello.status, 200);
   assert.equal(hello.data.result.protocolVersion, "2025-11-25");
   const list = await send("tools/list");
-  assert.equal(list.data.result.tools.length, 22);
+  assert.equal(list.data.result.tools.length, 23);
   const names = list.data.result.tools.map((x) => x.name);
   assert.ok(names.includes("sportx_update_document"));
   assert.ok(names.includes("sportx_register_developer"));
+  assert.ok(names.includes("sportx_list_developers"));
   assert.ok(names.includes("sportx_list_conversations"));
   assert.ok(names.includes("sportx_delete_task"));
   assert.ok(names.includes("sportx_delete_section"));
   assert.ok(names.includes("sportx_delete_decision"));
 });
+test("conversation identity is selected per tool call, never taken from client headers", async () => {
+  const directory = await send("tools/call", { name: "sportx_list_developers", arguments: {} });
+  assert.equal(directory.data.result.content[0].text.includes("Ada Rossi"), true);
+  const missing = await send("tools/call", { name: "sportx_list_conversations", arguments: {} },
+    { headers: { "X-SportX-Developer": "ada" } });
+  assert.equal(missing.data.result.isError, true);
+  assert.match(missing.data.result.content[0].text, /developer/);
+  const inbox = await send("tools/call", {
+    name: "sportx_list_conversations", arguments: { developer: "ada", unread_only: true },
+  }, { headers: { "X-SportX-Developer": "someone-else" } });
+  assert.equal(inbox.data.result.structuredContent.me.id, "ada");
+  assert.deepEqual(inbox.data.result.structuredContent.threads, []);
+});
+
 test("modern discovery and list use required protocol metadata", async () => {
   const discover = await send("server/discover", {}, { modern: true });
   assert.equal(discover.status, 200);
@@ -97,7 +118,7 @@ test("modern discovery and list use required protocol metadata", async () => {
   assert.equal(discover.data.result.resultType, "complete");
   assert.equal(discover.data.result._meta["io.modelcontextprotocol/serverInfo"].name, "sportx-plan");
   const list = await send("tools/list", {}, { modern: true });
-  assert.equal(list.data.result.tools.length, 22);
+  assert.equal(list.data.result.tools.length, 23);
   const invalid = await send("tools/list", {}, { modern: true, headers: { "Mcp-Method": "tools/call" } });
   assert.equal(invalid.status, 400);
 });

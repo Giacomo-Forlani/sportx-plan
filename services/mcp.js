@@ -28,6 +28,7 @@ const props = {
   answered: { type: "boolean" },
   thread_id: str(36),
   name: str(120),
+  developer: str(64),
   recipient: str(64),
   subject: str(180),
   reference: str(300),
@@ -74,16 +75,17 @@ export const mcpTools = [
 ];
 
 const inboxTools = [
-  tool("register_developer", "Registra il nome dello sviluppatore per la casella. Usa l’identificativo locale SPORTX_DEVELOPER configurato nell’header X-SportX-Developer.", ["name"], ["name"], true),
-  tool("list_conversations", "Controlla la tua casella, elenca gli ID dei destinatari e mostra le conversazioni in attesa di una tua risposta. Usa unread_only per filtrare i messaggi nuovi.", ["unread_only"]),
-  tool("send_message", "Avvia una conversazione con uno sviluppatore usando il suo ID. Collega l’attività o la decisione pertinente in reference.", ["recipient", "subject", "message", "reference", "kind"], ["recipient", "subject", "message"], true),
-  tool("read_conversation", "Leggi i messaggi e la versione corrente dell’accordo in una conversazione.", ["thread_id"], ["thread_id"]),
-  tool("reply_conversation", "Rispondi nella conversazione esistente.", ["thread_id", "message"], ["thread_id", "message"], true),
-  tool("mark_conversation_read", "Segna come letti i messaggi fino all’ID effettivamente letto, dopo averli riportati o presi in carico.", ["thread_id", "through_id"], ["thread_id", "through_id"], true),
-  tool("propose_agreement", "Pubblica il testo del contratto. Passa agreement_version letto nella conversazione come version (0 prima della prima proposta).", ["thread_id", "version", "message"], ["thread_id", "version", "message"], true),
-  tool("confirm_agreement", "Conferma esplicitamente la versione del contratto che hai letto. La PR è aperta dallo sviluppatore quando l’implementazione è pronta.", ["thread_id", "version"], ["thread_id", "version"], true),
+  tool("list_developers", "Elenca i profili degli sviluppatori con i relativi ID. Prima di usare una casella, chiedi il nome alla persona se non è noto nella chat e cerca qui il profilo corrispondente."),
+  tool("register_developer", "Registra un nuovo nome sviluppatore solo dopo averlo chiesto alla persona e aver verificato che non esista già. Restituisce il suo ID, senza configurazioni o variabili d'ambiente.", ["name"], ["name"], true),
+  tool("list_conversations", "Controlla la casella dello sviluppatore indicato, elenca i destinatari e i thread. Usa unread_only per filtrare i messaggi nuovi.", ["developer", "unread_only"], ["developer"]),
+  tool("send_message", "Avvia una conversazione a nome di developer con il destinatario indicato dal suo ID. Collega l'attività o la decisione pertinente in reference.", ["developer", "recipient", "subject", "message", "reference", "kind"], ["developer", "recipient", "subject", "message"], true),
+  tool("read_conversation", "Leggi i messaggi e la versione corrente dell'accordo per developer.", ["developer", "thread_id"], ["developer", "thread_id"]),
+  tool("reply_conversation", "Rispondi a nome di developer nella conversazione esistente.", ["developer", "thread_id", "message"], ["developer", "thread_id", "message"], true),
+  tool("mark_conversation_read", "Segna come letti per developer i messaggi fino all'ID effettivamente letto, dopo averli riportati o presi in carico.", ["developer", "thread_id", "through_id"], ["developer", "thread_id", "through_id"], true),
+  tool("propose_agreement", "Pubblica per developer il testo del contratto. Passa agreement_version letto nella conversazione come version (0 prima della prima proposta).", ["developer", "thread_id", "version", "message"], ["developer", "thread_id", "version", "message"], true),
+  tool("confirm_agreement", "Conferma esplicitamente per developer la versione del contratto che hai letto. La PR è aperta dallo sviluppatore quando l'implementazione è pronta.", ["developer", "thread_id", "version"], ["developer", "thread_id", "version"], true),
 ];
-const inboxInstructions = "All’inizio di ogni attività SportX, al primo utilizzo di sportx_plan, controlla i messaggi non letti con sportx_list_conversations. Se il nome non è registrato, chiedilo allo sviluppatore e usa sportx_register_developer. La casella usa l’identificativo locale SPORTX_DEVELOPER. Per i contratti proponi e conferma una versione nello stesso thread. Solo lo sviluppatore apre una PR, quando la sua implementazione è pronta.";
+const inboxInstructions = "Quando usi le conversazioni SportX, se non conosci già il nome dello sviluppatore in questa chat, chiediglielo direttamente prima di leggere o inviare messaggi; non indovinarlo. Poi usa sportx_list_developers per trovare il suo ID; se il profilo non esiste, registralo con sportx_register_developer usando il nome comunicato. Passa quell'ID nel parametro developer di OGNI tool Conversazioni per tutta la chat. Non richiedere né memorizzare SPORTX_DEVELOPER, header di identità, impostazioni locali o variabili persistenti. Dopo l'identificazione controlla i messaggi non letti con sportx_list_conversations. Per i contratti proponi e conferma una versione nello stesso thread. Solo lo sviluppatore apre una PR, quando la sua implementazione è pronta.";
 const instructions = "Usa i tool SportX per gestire dati condivisi. Prima di modificare una voce leggi la revisione corrente.";
 
 function send(res, status, value, headers = {}) {
@@ -159,14 +161,17 @@ function validateArguments(def, args) {
     if (rule.const !== undefined && value !== rule.const) throw new ToolInputError("Conferma esplicita richiesta.");
   }
 }
-async function runTool(name, args, callApi, developer) {
+async function runTool(name, args, callApi) {
   const def = mcpTools.find((x) => x.name === name) ?? inboxTools.find((x) => x.name === name);
   if (!def) throw new ToolInputError("Strumento sconosciuto: " + name);
   validateArguments(def, args);
+  const needsDeveloper = inboxTools.some((entry) => entry.name === name)
+    && !["sportx_register_developer", "sportx_list_developers"].includes(name);
+  const developer = needsDeveloper ? args.developer : undefined;
   async function call(method, path, data) {
     const request = Readable.from(data === undefined ? [] : [JSON.stringify(data)]);
     request.method = method;
-    request.headers = { "x-sportx-developer": developer };
+    request.headers = developer ? { "x-sportx-developer": developer } : {};
     return callApi(request, path);
   }
   const state = () => call("GET", "/state");
@@ -211,6 +216,8 @@ async function runTool(name, args, callApi, developer) {
     case "sportx_update_document":
       requireRevision(args);
       return call("PUT", "/document", { revision: args.revision, markdown: args.markdown });
+    case "sportx_list_developers":
+      return call("GET", "/conversations/developers");
     case "sportx_register_developer":
       return call("POST", "/conversations/developers", { name: args.name });
     case "sportx_list_conversations": {
@@ -247,7 +254,6 @@ function decorate(result, isModern) {
 }
 export async function handleMcp(req, res, callApi) {
   const secret = process.env.SPORTX_MCP_TOKEN;
-  const developer = req.headers["x-sportx-developer"];
   if (!secret || Buffer.byteLength(secret) < 32) {
     send(res, 503, { error: "MCP non configurato." });
     return;
@@ -334,7 +340,7 @@ export async function handleMcp(req, res, callApi) {
           send(res, 200, err(requestId, -32602, "Nome strumento mancante.")); return;
         }
         try {
-          result = toolResult(await runTool(msg.params.name, inputObject(msg.params.arguments), callApi, developer));
+          result = toolResult(await runTool(msg.params.name, inputObject(msg.params.arguments), callApi));
         } catch (e) {
           result = toolResult((e instanceof ToolInputError || (e.status && e.status < 500)) ? e.message : "Servizio temporaneamente non disponibile.", true);
         }

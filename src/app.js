@@ -156,6 +156,18 @@
       const head = add(group, "div", "section-heading");
       add(head, "h2", "", s.code);
       add(head, "span", "pill", String(list.length));
+      const emptySection = !state.tasks.some((t) => t.section_id === s.id);
+      const removeSection = add(head, "button", "small-action danger section-remove", "Elimina sezione");
+      removeSection.type = "button";
+      removeSection.setAttribute("aria-label", "Elimina sezione " + s.code);
+      removeSection.disabled = !emptySection;
+      removeSection.title = emptySection
+        ? "Elimina la sezione vuota " + s.code
+        : "Elimina prima tutte le attività della sezione.";
+      removeSection.onclick = () => {
+        if (confirm("Eliminare definitivamente la sezione vuota " + s.code + "?"))
+          save(() => api("/sections/" + s.id, "DELETE", { revision: s.revision }));
+      };
       if (!list.length)
         add(
           group,
@@ -252,6 +264,20 @@
         answer.value = draft?.answer ?? d.answer;
         add(form, "p", "form-error");
         const actions = add(form, "div", "editor-actions");
+        const remove = add(actions, "button", "button danger decision-remove", "Elimina");
+        remove.type = "button";
+        remove.setAttribute("aria-label", "Elimina decisione " + (d.code || d.id));
+        remove.onclick = () => {
+          const question = d.question.length > 120 ? d.question.slice(0, 120) + "…" : d.question;
+          if (!confirm("Eliminare definitivamente la decisione “" + question + "”?"))
+            return;
+          const pending = decisionDrafts.get(d.id);
+          save(
+            () => api("/decisions/" + d.id, "DELETE", { revision: pending?.revision ?? d.revision }),
+            form,
+            () => decisionDrafts.delete(d.id),
+          );
+        };
         const reset = add(actions, "button", "button", "Annulla modifiche");
         reset.type = "button";
         reset.hidden = !draft;

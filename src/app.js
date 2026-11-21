@@ -88,6 +88,9 @@
           "Conflitto: il documento è cambiato altrove. Copia le tue modifiche e ricarica la pagina.",
           true,
         );
+      } else if (e.status && e.status >= 400 && e.status < 500 && e.status !== 408 && e.status !== 429) {
+        documentSaveBlocked = true;
+        documentStatus("Salvataggio rifiutato: " + e.message + " Copia il testo prima di ricaricare.", true);
       } else {
         documentStatus("Salvataggio non riuscito. Nuovo tentativo automatico…", true);
         scheduleDocumentSave(3000);
@@ -157,6 +160,7 @@
     refreshing = true;
     try {
       state = await api("/state");
+      $("preview-document").disabled = false;
       renderOverview();
       renderTasks();
       if (force || !document.activeElement.closest(".decision"))

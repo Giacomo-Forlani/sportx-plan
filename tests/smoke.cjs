@@ -208,10 +208,9 @@ const puppeteer = require(
       "Testo Markdown",
     );
     await b.click('[data-view="documento"]');
-    await b.waitForSelector("#document-preview:not(.hidden) strong");
-    assert.equal(
-      await b.$eval("#document-preview strong", (e) => e.textContent),
-      "Testo Markdown",
+    await b.waitForFunction(
+      () => document.querySelector("#document-preview:not(.hidden) strong")?.textContent === "Testo Markdown",
+      { timeout: 12000 },
     );
     assert.equal(await b.$eval("#document-text", (e) => e.classList.contains("hidden")), true);
     await a.click('[data-view="backlog"]');

@@ -185,6 +185,13 @@ const puppeteer = require(
       () => ![...document.querySelectorAll(".backlog-section h2")].some((e) => e.textContent === "TEST"),
     );
     await a.click('[data-view="documento"]');
+    await a.waitForSelector("#document-preview:not(.hidden) h1");
+    assert.equal(await a.$eval("#preview-document", (e) => e.textContent.trim()), "Modifica testo");
+    assert.equal(await a.$eval("#document-text", (e) => e.classList.contains("hidden")), true);
+    assert.equal(await a.$eval("#save-document", (e) => e.classList.contains("hidden")), true);
+    await a.click("#preview-document");
+    await a.waitForSelector("#document-text:not(.hidden)");
+    assert.equal(await a.$eval("#preview-document", (e) => e.textContent.trim()), "Anteprima");
     await a.$eval("#document-text", (e) => {
       e.value = "# Test condiviso\n\n**Testo Markdown**";
       e.dispatchEvent(new Event("input", { bubbles: true }));
@@ -202,10 +209,25 @@ const puppeteer = require(
     );
     await b.click('[data-view="documento"]');
     await b.waitForFunction(
-      () =>
-        document
-          .querySelector("#document-text")
-          .value.includes("# Test condiviso"),
+      () => document.querySelector("#document-preview:not(.hidden) strong")?.textContent === "Testo Markdown",
+      { timeout: 12000 },
+    );
+    assert.equal(await b.$eval("#document-text", (e) => e.classList.contains("hidden")), true);
+    await a.click('[data-view="backlog"]');
+    await a.click('[data-view="documento"]');
+    await a.waitForSelector("#document-preview:not(.hidden) strong");
+    assert.equal(await a.$eval("#preview-document", (e) => e.textContent.trim()), "Modifica testo");
+
+    // Live preview follows changes saved in another browser without opening the editor.
+    await a.click("#preview-document");
+    await a.$eval("#document-text", (e) => {
+      e.value = "# Documento aggiornato\n\n**Da un collega**";
+      e.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await a.click("#save-document");
+    await a.waitForFunction(() => document.querySelector("#document-status").textContent === "Salvato");
+    await b.waitForFunction(
+      () => document.querySelector("#document-preview strong")?.textContent === "Da un collega",
       { timeout: 12000 },
     );
     await a.setViewport({ width: 375, height: 812 });

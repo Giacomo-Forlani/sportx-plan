@@ -5,6 +5,9 @@
     editing = null,
     documentRevision = null,
     documentDirty = false,
+    previewMarkdown = null,
+    pendingPreviewMarkdown = null,
+    previewRequestId = 0,
     refreshing = false,
     mutating = false;
   const decisionDrafts = new Map();
@@ -52,6 +55,46 @@
       else n.removeAttribute("aria-current");
     });
     $("breadcrumb").textContent = name.toUpperCase();
+    if (name === "documento") setDocumentMode(true);
+  }
+  async function updateDocumentPreview() {
+    if (
+      !state ||
+      $("view-documento").classList.contains("hidden") ||
+      $("document-preview").classList.contains("hidden")
+    ) return;
+    const markdown = $("document-text").value;
+    if (markdown === previewMarkdown || markdown === pendingPreviewMarkdown)
+      return;
+    const requestId = ++previewRequestId;
+    pendingPreviewMarkdown = markdown;
+    try {
+      const result = await api("/preview", "POST", { markdown });
+      // Ignore obsolete responses if the document changed while rendering.
+      if (
+        requestId !== previewRequestId ||
+        $("document-preview").classList.contains("hidden")
+      ) return;
+      $("document-preview").innerHTML = result.html;
+      previewMarkdown = markdown;
+    } catch (e) {
+      if (requestId === previewRequestId) message(e.message, true);
+    } finally {
+      if (requestId === previewRequestId) pendingPreviewMarkdown = null;
+    }
+  }
+  function setDocumentMode(preview) {
+    $("document-preview").classList.toggle("hidden", !preview);
+    $("document-text").classList.toggle("hidden", preview);
+    $("document-editor-label").classList.toggle("hidden", preview);
+    $("save-document").classList.toggle("hidden", preview);
+    $("preview-document").textContent = preview ? "Modifica testo" : "Anteprima";
+    if (preview) void updateDocumentPreview();
+    else {
+      ++previewRequestId;
+      pendingPreviewMarkdown = null;
+      $("document-text").focus();
+    }
   }
   async function load({ force = false } = {}) {
     if (refreshing || mutating) return;
@@ -69,6 +112,8 @@
         $("document-status").textContent =
           "Un collega ha modificato il documento. Copia il tuo testo prima di ricaricare.";
       }
+      // Keep read-only preview in sync with updates from other team members.
+      void updateDocumentPreview();
       $("sync-status").textContent =
         "Aggiornato alle " +
         new Date().toLocaleTimeString("it-IT", {
@@ -416,23 +461,8 @@
       },
     );
   };
-  $("preview-document").onclick = async () => {
-    const show = $("document-preview").classList.contains("hidden");
-    if (show) {
-      try {
-        const r = await api("/preview", "POST", {
-          markdown: $("document-text").value,
-        });
-        $("document-preview").innerHTML = r.html;
-      } catch (e) {
-        message(e.message, true);
-        return;
-      }
-    }
-    $("document-preview").classList.toggle("hidden", !show);
-    $("document-text").classList.toggle("hidden", show);
-    $("preview-document").textContent = show ? "Modifica testo" : "Anteprima";
-  };
+  $("preview-document").onclick = () =>
+    setDocumentMode($("document-preview").classList.contains("hidden"));
   window.addEventListener("beforeunload", (e) => {
     if (documentDirty || decisionDrafts.size) {
       e.preventDefault();

@@ -193,28 +193,29 @@
                 <p class="eyebrow">APPUNTI DEL PROGETTO</p>
                 <h1>Documento</h1>
                 <p class="subtitle">
-                  Modifica il testo in Markdown e visualizza l’anteprima.
+                  Consulta il documento e passa alla modifica quando serve.
                 </p>
               </div>
               <div class="actions">
-                <button id="preview-document" class="button">Anteprima</button
-                ><button id="save-document" class="button primary">
+                <button id="preview-document" class="button" type="button">Modifica testo</button
+                ><button id="save-document" class="button primary hidden" type="button">
                   Salva documento
                 </button>
               </div>
             </div>
-            <label class="document-label" for="document-text"
+            <label id="document-editor-label" class="document-label hidden" for="document-text"
               >Testo Markdown
               <span id="document-status" role="status"></span></label
             ><textarea
               id="document-text"
-              class="document-text"
+              class="document-text hidden"
               spellcheck="false"
             ></textarea>
             <article
               id="document-preview"
-              class="markdown panel hidden"
-            ></article>
+              class="markdown panel"
+              aria-label="Anteprima documento"
+            >Caricamento anteprima…</article>
           </section>
         </div>
       </main>

@@ -313,8 +313,13 @@ const puppeteer = require(
     await a.click("#conversation-new");
     assert.deepEqual(await a.$$eval("#conversation-compose select", (nodes) => nodes.map((node) => node.id)),
       ["conversation-sender", "conversation-recipient"]);
-    await a.select("#conversation-sender", "ada-rossi");
-    await a.select("#conversation-recipient", "luca-bianchi");
+    assert.deepEqual(await a.$$eval("#conversation-sender option", (nodes) =>
+      nodes.slice(1).map((node) => [node.value, node.textContent])),
+      [["ada", "Ada"], ["luca", "Luca"], ["marta", "Marta"]]);
+    await a.select("#conversation-sender", "ada");
+    assert.deepEqual(await a.$$eval("#conversation-recipient option", (nodes) => nodes.map((node) => node.value)),
+      ["", "luca", "marta"]);
+    await a.select("#conversation-recipient", "luca");
     await a.type("#conversation-new-subject", "Evento PaymentVerified");
     await a.type("#conversation-new-reference", "DEC-02");
     await a.type("#conversation-new-text", "Puoi usare membershipRequestId?");
@@ -336,7 +341,7 @@ const puppeteer = require(
       (nodes) => nodes.map((node) => node.textContent)), ["0 messaggi da leggere", "2 messaggi da leggere"]);
     assert.deepEqual(await b.$$eval(".conversation-reply select", (nodes) => nodes.map((node) => node.id)),
       ["conversation-reply-sender"]);
-    await b.select("#conversation-reply-sender", "luca-bianchi");
+    await b.select("#conversation-reply-sender", "luca");
     await b.waitForSelector("#conversation-read", { visible: true });
     await b.click("#conversation-read");
     await b.waitForSelector("#conversation-read", { hidden: true });
@@ -344,17 +349,16 @@ const puppeteer = require(
       (nodes) => nodes.map((node) => node.textContent)), ["0 messaggi da leggere", "0 messaggi da leggere"]);
     await b.select("#conversation-filter", "waiting");
     await b.waitForSelector(".conversation-item", { visible: true });
-    await b.click("#conversation-agreement-composer summary");
-    await b.type("#conversation-proposal-text", "Servono membershipRequestId e paymentId.");
-    await b.click("#conversation-proposal-send");
-    await b.waitForSelector("#agreement-confirm", { visible: true });
-    await b.click("#agreement-confirm");
-    await b.waitForSelector("#agreement-confirm", { hidden: true });
+    assert.equal(await b.$("#conversation-proposal"), null);
+    assert.equal(await b.$("#agreement-confirm"), null);
+    await b.type("#conversation-reply-text", "Servono membershipRequestId e paymentId.");
+    await b.click("#conversation-reply button[type=submit]");
+    await b.waitForFunction(() => document.querySelector("#conversation-messages").textContent.includes("paymentId"));
     await a.click("#refresh");
-    await a.waitForSelector("#agreement-confirm", { visible: true });
-    await a.click("#agreement-confirm");
-    await a.waitForFunction(() => document.querySelector("#agreement-title").textContent === "Accordo confermato · v1");
-    assert.ok((await a.$eval("#agreement-text", (node) => node.textContent)).includes("paymentId"));
+    await a.waitForFunction(() => document.querySelector("#conversation-messages").textContent.includes("paymentId"));
+    await a.type("#conversation-reply-text", "D’accordo, usiamo entrambi i campi.");
+    await a.click("#conversation-reply button[type=submit]");
+    await a.waitForFunction(() => document.querySelector("#conversation-messages").textContent.includes("entrambi i campi"));
     const threadHash = await a.evaluate(() => location.hash);
     assert.match(threadHash, /^#conversazioni\//);
     await a.setViewport({ width: 375, height: 812 });
@@ -377,7 +381,7 @@ const puppeteer = require(
     assert.deepEqual(errors, []);
     await a.screenshot({ path: "/tmp/sportx-plan-mobile.png", fullPage: true });
     console.log(
-      "OK: two browsers, shared edits, inline decisions, Markdown, conversations and agreements, mobile, no JavaScript errors.",
+      "OK: two browsers, shared edits, inline decisions, Markdown, messaging, mobile, no JavaScript errors.",
     );
   } finally {
     await browser.close();

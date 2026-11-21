@@ -2,7 +2,7 @@ import http from "node:http";
 import { readFile } from "node:fs/promises";
 import { pool, initialize } from "./db.js";
 import { handleMcp } from "./mcp.js";
-import { conversationApi } from "./conversations.js";
+import { conversationApi, initializeConversationTeam } from "./conversations.js";
 import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
 const statuses = [
@@ -286,6 +286,7 @@ const mime = {
 };
 export async function start(port = Number(process.env.PORT || 8791)) {
   await initialize();
+  await initializeConversationTeam();
   const server = http.createServer(async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("X-Content-Type-Options", "nosniff");

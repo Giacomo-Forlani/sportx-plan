@@ -33,10 +33,8 @@ const props = {
   subject: str(180),
   reference: str(300),
   message: str(20000),
-  kind: { type: "string", enum: ["question", "notice"] },
   unread_only: { type: "boolean" },
   through_id: str(19),
-  version: { type: "integer", minimum: 0 },
   confirm: { type: "boolean", const: true },
 };
 function tool(name, description, fields = [], required = [], write = false, destructive = false) {
@@ -78,14 +76,12 @@ const inboxTools = [
   tool("list_developers", "Elenca i profili degli sviluppatori con i relativi ID. Prima di usare una casella, chiedi il nome alla persona se non è noto nella chat e cerca qui il profilo corrispondente."),
   tool("register_developer", "Registra un nuovo nome sviluppatore solo dopo averlo chiesto alla persona e aver verificato che non esista già. Restituisce il suo ID, senza configurazioni o variabili d'ambiente.", ["name"], ["name"], true),
   tool("list_conversations", "Controlla la casella dello sviluppatore indicato, elenca i destinatari e i thread. Usa unread_only per filtrare i messaggi nuovi.", ["developer", "unread_only"], ["developer"]),
-  tool("send_message", "Avvia una conversazione a nome di developer con il destinatario indicato dal suo ID. Collega l'attività o la decisione pertinente in reference.", ["developer", "recipient", "subject", "message", "reference", "kind"], ["developer", "recipient", "subject", "message"], true),
-  tool("read_conversation", "Leggi i messaggi e la versione corrente dell'accordo per developer.", ["developer", "thread_id"], ["developer", "thread_id"]),
+  tool("send_message", "Avvia una conversazione a nome di developer con il destinatario indicato dal suo ID. Collega l'attività o la decisione pertinente in reference.", ["developer", "recipient", "subject", "message", "reference"], ["developer", "recipient", "subject", "message"], true),
+  tool("read_conversation", "Leggi i messaggi della conversazione per developer.", ["developer", "thread_id"], ["developer", "thread_id"]),
   tool("reply_conversation", "Rispondi a nome di developer nella conversazione esistente.", ["developer", "thread_id", "message"], ["developer", "thread_id", "message"], true),
   tool("mark_conversation_read", "Segna come letti per developer i messaggi fino all'ID effettivamente letto, dopo averli riportati o presi in carico.", ["developer", "thread_id", "through_id"], ["developer", "thread_id", "through_id"], true),
-  tool("propose_agreement", "Pubblica per developer il testo del contratto. Passa agreement_version letto nella conversazione come version (0 prima della prima proposta).", ["developer", "thread_id", "version", "message"], ["developer", "thread_id", "version", "message"], true),
-  tool("confirm_agreement", "Conferma esplicitamente per developer la versione del contratto che hai letto. La PR è aperta dallo sviluppatore quando l'implementazione è pronta.", ["developer", "thread_id", "version"], ["developer", "thread_id", "version"], true),
 ];
-const inboxInstructions = "Quando usi le conversazioni SportX, se non conosci già il nome dello sviluppatore in questa chat, chiediglielo direttamente prima di leggere o inviare messaggi; non indovinarlo. Poi usa sportx_list_developers per trovare il suo ID; se il profilo non esiste, registralo con sportx_register_developer usando il nome comunicato. Passa quell'ID nel parametro developer di OGNI tool Conversazioni per tutta la chat. Non richiedere né memorizzare SPORTX_DEVELOPER, header di identità, impostazioni locali o variabili persistenti. Dopo l'identificazione controlla i messaggi non letti con sportx_list_conversations. Per i contratti proponi e conferma una versione nello stesso thread. Solo lo sviluppatore apre una PR, quando la sua implementazione è pronta.";
+const inboxInstructions = "Quando usi le conversazioni SportX, se non conosci già il nome dello sviluppatore in questa chat, chiediglielo direttamente prima di leggere o inviare messaggi; non indovinarlo. Poi usa sportx_list_developers per trovare il suo ID; se il profilo non esiste, registralo con sportx_register_developer usando il nome comunicato. Passa quell'ID nel parametro developer di OGNI tool Conversazioni per tutta la chat. Non richiedere né memorizzare SPORTX_DEVELOPER, header di identità, impostazioni locali o variabili persistenti. Dopo l'identificazione controlla i messaggi non letti con sportx_list_conversations. Per concordare un contratto, scambia messaggi e scrivi l’accordo raggiunto nello stesso thread. Solo lo sviluppatore apre una PR, quando la sua implementazione è pronta.";
 const instructions = "Usa i tool SportX per gestire dati condivisi. Prima di modificare una voce leggi la revisione corrente.";
 
 function send(res, status, value, headers = {}) {
@@ -233,10 +229,6 @@ async function runTool(name, args, callApi) {
       return call("POST", "/conversations/" + conversationId(args.thread_id) + "/replies", { message: args.message });
     case "sportx_mark_conversation_read":
       return call("POST", "/conversations/" + conversationId(args.thread_id) + "/read", { through_id: args.through_id });
-    case "sportx_propose_agreement":
-      return call("POST", "/conversations/" + conversationId(args.thread_id) + "/proposal", { message: args.message, version: args.version });
-    case "sportx_confirm_agreement":
-      return call("POST", "/conversations/" + conversationId(args.thread_id) + "/confirmation", { version: args.version });
     default: throw new ToolInputError("Strumento sconosciuto.");
   }
 }

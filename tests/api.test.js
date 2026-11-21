@@ -295,7 +295,7 @@ test("MCP endpoint uses the same persistent API state and validation", async () 
   }
 });
 
-test("conversations share REST and MCP profiles and confirm only the current proposal", async (t) => {
+test("conversations share REST and MCP profiles and preserve legacy messages", async (t) => {
   const secret = "conversation-application-test-" + "x".repeat(40);
   const previous = process.env.SPORTX_MCP_TOKEN;
   const previousTeam = process.env.SPORTX_CONVERSATION_TEAM;
@@ -401,21 +401,18 @@ test("conversations share REST and MCP profiles and confirm only the current pro
   assert.equal((await inbox("ada", path)).unread, true);
   assert.equal((await inbox("ada", path)).waiting_for_you, false);
   assert.equal((await inbox("luca-bianchi", path)).waiting_for_you, false);
-  const proposal = await mcp("ada", "propose_agreement", { thread_id: sent.id, message: "Versione 1", version: 0 });
-  assert.equal(proposal.version, 1);
-  await Promise.all([1, 2].map(() => inbox("ada", path + "/confirmation", { version: 1 })));
-  await mcp("luca-bianchi", "confirm_agreement", { thread_id: sent.id, version: 1 });
-  let detail = await inbox("ada", path);
-  assert.deepEqual(detail.confirmed_by, ["ada", "luca-bianchi"]);
-  assert.equal(detail.messages.filter((item) => item.kind === "confirmation").length, 2);
-  await inbox("luca-bianchi", path + "/proposal", { message: "Versione 2", version: 1 });
-  await inbox("ada", path + "/proposal", { message: "Proposta concorrente", version: 1 }, 409);
-  await inbox("ada", path + "/confirmation", { version: 1 }, 409);
+  await inbox("ada", path + "/proposal", { message: "Versione 1", version: 0 }, 404);
+  await inbox("luca-bianchi", path + "/confirmation", { version: 1 }, 404);
+  await pool.query("UPDATE conversation_threads SET agreement_version=1 WHERE id=$1", [sent.id]);
+  await pool.query(
+    `INSERT INTO conversation_messages(thread_id,author_id,body,kind,agreement_version)
+     VALUES($1,'ada','Proposta storica','proposal',1),($1,'luca-bianchi','','confirmation',1)`, [sent.id],
+  );
   await inbox("ada", path + "/read", { through_id: first.messages[0].id });
-  detail = await mcp("ada", "read_conversation", { thread_id: sent.id });
-  assert.equal(detail.agreement_version, 2);
-  assert.deepEqual(detail.confirmed_by, []);
-  assert.equal(detail.messages.filter((item) => item.kind === "confirmation").length, 2);
+  const detail = await mcp("ada", "read_conversation", { thread_id: sent.id });
+  assert.deepEqual(detail.messages.slice(-2).map(({ kind, body }) => [kind, body]),
+    [["proposal", "Proposta storica"], ["confirmation", ""]]);
+  assert.deepEqual(detail.waiting_by, []);
   assert.equal(detail.unread, true);
   await inbox("ada", path + "/read", { through_id: detail.messages.at(-1).id });
   await inbox("ada", path + "/read", { through_id: first.messages[0].id });
@@ -445,4 +442,35 @@ test("conversations share REST and MCP profiles and confirm only the current pro
   const { result: missingResult } = await missingDeveloper.json();
   assert.equal(missingResult.isError, true);
   assert.match(missingResult.content[0].text, /developer/);
+});
+
+test("configured teammates can exchange messages before registration and keep their thread", async (t) => {
+  const old = process.env.SPORTX_CONVERSATION_TEAM;
+  process.env.SPORTX_CONVERSATION_TEAM = "Ada,Luca,Lea";
+  t.after(() => {
+    if (old === undefined) delete process.env.SPORTX_CONVERSATION_TEAM;
+    else process.env.SPORTX_CONVERSATION_TEAM = old;
+  });
+  const { initializeConversationTeam } = await import("../services/conversations.js");
+  await Promise.all([initializeConversationTeam(), initializeConversationTeam()]);
+  const board = await request("/conversations/board");
+  assert.deepEqual(board.members.map(({ id }) => id), ["ada", "luca-bianchi", "lea"]);
+  const replyAs = (developer, path, data) => fetch(base + "/conversations" + path, {
+    method: data ? "POST" : "GET",
+    headers: { "Content-Type": "application/json", "X-SportX-Developer": developer },
+    body: data ? JSON.stringify(data) : undefined,
+  });
+  const sent = await replyAs("ada", "", { recipient: "lea", subject: "Interfaccia", message: "Puoi controllare il campo?" });
+  assert.equal(sent.status, 200);
+  const { id } = await sent.json();
+  const answer = await replyAs("lea", "/" + id + "/replies", { message: "Sì, possiamo usarlo." });
+  assert.equal(answer.status, 200);
+  const profile = await request("/conversations/developers", "POST", { name: "Lea Rossi" });
+  assert.deepEqual(profile, { id: "lea", name: "Lea Rossi" });
+  assert.deepEqual(await request("/conversations/developers", "POST", { name: "Lea" }), profile);
+  const refreshed = await request("/conversations/board");
+  assert.deepEqual(refreshed.members.at(-1), { id: "lea", name: "Lea" });
+  const thread = await replyAs("lea", "/" + id);
+  assert.equal(thread.status, 200);
+  assert.deepEqual((await thread.json()).messages.map(({ author_id }) => author_id), ["ada", "lea"]);
 });

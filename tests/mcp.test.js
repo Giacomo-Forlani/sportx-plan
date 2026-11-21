@@ -87,12 +87,16 @@ test("legacy initialize and complete tools catalogue", async () => {
   assert.equal(hello.status, 200);
   assert.equal(hello.data.result.protocolVersion, "2025-11-25");
   const list = await send("tools/list");
-  assert.equal(list.data.result.tools.length, 23);
+  assert.equal(list.data.result.tools.length, 21);
   const names = list.data.result.tools.map((x) => x.name);
   assert.ok(names.includes("sportx_update_document"));
   assert.ok(names.includes("sportx_register_developer"));
   assert.ok(names.includes("sportx_list_developers"));
   assert.ok(names.includes("sportx_list_conversations"));
+  assert.ok(!names.includes("sportx_propose_agreement"));
+  assert.ok(!names.includes("sportx_confirm_agreement"));
+  const sendMessage = list.data.result.tools.find(({ name }) => name === "sportx_send_message");
+  assert.ok(!("kind" in sendMessage.inputSchema.properties));
   assert.ok(names.includes("sportx_delete_task"));
   assert.ok(names.includes("sportx_delete_section"));
   assert.ok(names.includes("sportx_delete_decision"));
@@ -118,7 +122,7 @@ test("modern discovery and list use required protocol metadata", async () => {
   assert.equal(discover.data.result.resultType, "complete");
   assert.equal(discover.data.result._meta["io.modelcontextprotocol/serverInfo"].name, "sportx-plan");
   const list = await send("tools/list", {}, { modern: true });
-  assert.equal(list.data.result.tools.length, 23);
+  assert.equal(list.data.result.tools.length, 21);
   const invalid = await send("tools/list", {}, { modern: true, headers: { "Mcp-Method": "tools/call" } });
   assert.equal(invalid.status, 400);
 });

@@ -1475,8 +1475,7 @@ button:disabled {
 .conversation-thread-header .actions { flex-wrap: wrap; }
 .conversation-thread-header h2 { font-size: 1.15rem; }
 .conversation-messages { display: grid; gap: 12px; }
-.conversation-message,
-.conversation-agreement {
+.conversation-message {
   border: 1px solid var(--line);
   border-radius: 9px;
   padding: 13px 15px;
@@ -1485,12 +1484,6 @@ button:disabled {
 .conversation-message { background: var(--surface-alt); }
 .conversation-message p { margin: 8px 0 0; }
 .conversation-message time { font-size: 0.8rem; }
-.conversation-agreement {
-  margin: 18px 20px 0;
-  background: var(--accent-bg);
-}
-.conversation-agreement h3 { margin: 0; font-size: 1rem; }
-.conversation-agreement p { margin: 8px 0; }
 .conversation-body {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -1500,12 +1493,8 @@ button:disabled {
 .conversation-reply { border-top: 1px solid var(--line-soft); }
 .conversation-reply h3 { margin: 0 0 12px; font-size: 1rem; }
 .conversation-addresses { align-items: end; margin-bottom: 12px; }
-.conversation-message-actions { flex-wrap: wrap; margin-bottom: 12px; }
-.conversation-message-actions:not(:has(button:not(.hidden))) { display: none; }
+.conversation-read { margin-bottom: 12px; }
 .conversation-reply-actions { justify-content: end; margin-top: 10px; }
-.conversation-agreement-composer { margin-top: 16px; }
-.conversation-agreement-composer summary { cursor: pointer; color: var(--accent); }
-.conversation-agreement-composer form { margin-top: 12px; }
 
 @media (max-width: 880px) {
   .conversation-layout { grid-template-columns: minmax(0, 1fr); }
@@ -1514,5 +1503,4 @@ button:disabled {
   .conversation-thread-header,
   .conversation-messages,
   .conversation-reply { padding: 14px; }
-  .conversation-agreement { margin: 14px 14px 0; }
 }

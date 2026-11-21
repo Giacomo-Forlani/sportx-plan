@@ -3,13 +3,48 @@ import { pool } from "./db.js";
 
 const developerId = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const uuid = "[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}";
-const threadPath = new RegExp("^/conversations/(" + uuid + ")(?:/(replies|read|proposal|confirmation))?$");
+const threadPath = new RegExp("^/conversations/(" + uuid + ")(?:/(replies|read))?$");
 const boardThreadPath = new RegExp("^/conversations/board/(" + uuid + ")$");
 
 function slug(name) {
   return name.normalize("NFKD").replace(/\p{M}/gu, "")
     .replace(/[^a-z0-9]+/g, "-").slice(0, 64).replace(/^-|-$/g, "") ||
     "dev-" + createHash("sha256").update(name).digest("hex").slice(0, 20);
+}
+
+const teamKey = (name) => slug(name.trim().toLowerCase().split(/\s+/u)[0]);
+
+function configuredTeam() {
+  const names = (process.env.SPORTX_CONVERSATION_TEAM ?? "").split(",").map((name) => name.trim()).filter(Boolean);
+  return new Map(names.map((name) => [teamKey(name), name]));
+}
+
+function memberTeamKey({ id, name }, team) {
+  const key = teamKey(name);
+  return team.has(key) ? key : id.split("-")[0];
+}
+
+async function changeDevelopers(run) {
+  return transaction(async (client) => {
+    await client.query("SELECT pg_advisory_xact_lock(731093)");
+    return run(client);
+  });
+}
+
+export async function initializeConversationTeam() {
+  const team = configuredTeam();
+  if (!team.size) return;
+  await changeDevelopers(async (client) => {
+    const directory = await developers(client);
+    const assigned = new Set(directory.map((member) => memberTeamKey(member, team)));
+    for (const [id, name] of team) {
+      if (assigned.has(id)) continue;
+      await client.query(
+        `INSERT INTO conversation_developers(id,name,name_key) VALUES($1,$2,$3)
+         ON CONFLICT DO NOTHING`, [id, name, name.toLowerCase()],
+      );
+    }
+  });
 }
 
 async function registerDeveloper(data, claimedId, { field, Problem }) {
@@ -21,17 +56,41 @@ async function registerDeveloper(data, claimedId, { field, Problem }) {
   if (typeof id !== "string" || !developerId.test(id))
     throw new Problem(400, "Identificativo sviluppatore non valido.");
 
-  const { rows: [inserted] } = await pool.query(
-    `INSERT INTO conversation_developers(id,name,name_key) VALUES($1,$2,$3)
-     ON CONFLICT DO NOTHING RETURNING id,name`, [id, name, nameKey],
-  );
-  if (inserted) return inserted;
-  const { rows: [existing] } = await pool.query(
-    "SELECT id,name FROM conversation_developers WHERE name_key=$1", [nameKey],
-  );
-  if (existing && (!claimedId || existing.id === claimedId)) return existing;
-  if (existing) throw new Problem(409, "Questo nome è già registrato con ID " + existing.id + ". Seleziona il profilo esistente.");
-  throw new Problem(409, "Identificativo già assegnato. Usa un nome più specifico o un identificativo diverso.");
+  return changeDevelopers(async (client) => {
+    const { rows: [existing] } = await client.query(
+      "SELECT id,name FROM conversation_developers WHERE name_key=$1", [nameKey],
+    );
+    if (existing && (!claimedId || existing.id === claimedId)) return existing;
+    if (existing) throw new Problem(409, "Questo nome è già registrato con ID " + existing.id + ". Seleziona il profilo esistente.");
+
+    const team = configuredTeam();
+    const shortId = teamKey(name);
+    const shortName = team.get(shortId);
+    if (shortName) {
+      const directory = await developers(client);
+      const profile = directory.find((member) => member.id === shortId) ??
+        directory.find((member) => memberTeamKey(member, team) === shortId);
+      if (profile) {
+        if (claimedId && claimedId !== profile.id)
+          throw new Problem(409, "Questo sviluppatore ha già l’ID " + profile.id + ". Seleziona il profilo esistente.");
+        if (profile.name === shortName) {
+          const { rows: [updated] } = await client.query(
+            "UPDATE conversation_developers SET name=$1,name_key=$2 WHERE id=$3 RETURNING id,name",
+            [name, nameKey, profile.id],
+          );
+          return updated;
+        }
+        return profile;
+      }
+    }
+
+    const { rows: [inserted] } = await client.query(
+      `INSERT INTO conversation_developers(id,name,name_key) VALUES($1,$2,$3)
+       ON CONFLICT DO NOTHING RETURNING id,name`, [id, name, nameKey],
+    );
+    if (inserted) return inserted;
+    throw new Problem(409, "Identificativo già assegnato. Usa un nome più specifico o un identificativo diverso.");
+  });
 }
 
 async function transaction(run, begin = "BEGIN") {
@@ -49,14 +108,14 @@ async function transaction(run, begin = "BEGIN") {
   }
 }
 
-async function developers() {
-  const { rows } = await pool.query("SELECT id,name FROM conversation_developers ORDER BY name,id");
+async function developers(client = pool) {
+  const { rows } = await client.query("SELECT id,name FROM conversation_developers ORDER BY name,id");
   return rows;
 }
 
 async function threads(client, directory, memberId = null, id = null) {
   const { rows } = await client.query(
-    `SELECT t.id,t.subject,t.reference,t.kind,t.agreement_version,t.updated_at,
+    `SELECT t.id,t.subject,t.reference,t.kind,t.updated_at,
       ARRAY[t.sender_id,t.recipient_id] AS member_ids,
       left(latest.body,280) AS preview,
       (t.kind='question' AND NOT EXISTS(
@@ -66,10 +125,7 @@ async function threads(client, directory, memberId = null, id = null) {
         SELECT count(*) FROM conversation_messages m WHERE m.thread_id=t.id
           AND m.author_id<>p.id AND m.id>COALESCE(r.through_id,0)))
         FROM unnest(ARRAY[t.sender_id,t.recipient_id]) AS p(id)
-        LEFT JOIN conversation_reads r ON r.thread_id=t.id AND r.member_id=p.id) AS unread_counts,
-      ARRAY(SELECT m.author_id FROM conversation_messages m WHERE m.thread_id=t.id
-        AND m.kind='confirmation' AND m.agreement_version=t.agreement_version
-        ORDER BY m.id) AS confirmed_by
+        LEFT JOIN conversation_reads r ON r.thread_id=t.id AND r.member_id=p.id) AS unread_counts
      FROM conversation_threads t
      JOIN LATERAL (SELECT body FROM conversation_messages WHERE thread_id=t.id
        ORDER BY id DESC LIMIT 1) latest ON true
@@ -80,16 +136,13 @@ async function threads(client, directory, memberId = null, id = null) {
   );
   const byId = new Map(directory.map((person) => [person.id, person]));
   return rows.map(({ member_ids, owes_reply, ...row }) => {
-    const awaitingAgreement = row.agreement_version > 0 && row.confirmed_by.length < member_ids.length;
-    const waitingBy = awaitingAgreement
-      ? member_ids.filter((personId) => !row.confirmed_by.includes(personId))
-      : owes_reply ? [member_ids[1]] : [];
+    const waitingBy = owes_reply ? [member_ids[1]] : [];
     const thread = {
       ...row,
       participants: member_ids.map((personId) => byId.get(personId) ?? { id: personId, name: personId }),
       unread_by: member_ids.filter((personId) => row.unread_counts[personId] > 0),
       waiting_by: waitingBy,
-      waiting_for: awaitingAgreement ? "confirmation" : owes_reply ? "reply" : null,
+      waiting_for: owes_reply ? "reply" : null,
     };
     if (memberId) {
       thread.unread_count = row.unread_counts[memberId];
@@ -101,12 +154,8 @@ async function threads(client, directory, memberId = null, id = null) {
 }
 
 function boardSections(directory, conversations) {
-  const groups = new Map();
-  const firstName = (name) => slug(name.trim().toLowerCase().split(/\s+/u)[0]);
-  for (const entry of (process.env.SPORTX_CONVERSATION_TEAM ?? "").split(",")) {
-    const name = entry.trim();
-    if (name) groups.set("team:" + firstName(name), { name, member_ids: [] });
-  }
+  const team = configuredTeam();
+  const groups = new Map([...team].map(([id, name]) => ["team:" + id, { name, member_ids: [] }]));
   const configured = groups.size > 0;
   const known = new Map(directory.map((member) => [member.id, member]));
   for (const { participants } of conversations) {
@@ -116,9 +165,9 @@ function boardSections(directory, conversations) {
   }
   const assigned = new Set();
   for (const { id, name } of known.values()) {
-    const team = groups.get("team:" + firstName(name)) ?? groups.get("team:" + id.split("-")[0]);
-    if (team) {
-      team.member_ids.push(id);
+    const group = groups.get("team:" + memberTeamKey({ id, name }, team));
+    if (group) {
+      group.member_ids.push(id);
       assigned.add(id);
     } else if (!configured) groups.set("developer:" + id, { name, member_ids: [id] });
   }
@@ -161,12 +210,13 @@ export async function conversationApi(req, path, { body, field, Problem }) {
     const directory = await developers();
     const conversations = await threads(pool, directory);
     const sections = boardSections(directory, conversations);
-    const active = new Set(sections.filter(({ id }) => id !== "archive").flatMap(({ member_ids }) => member_ids));
-    return {
-      members: directory.filter(({ id }) => active.has(id)),
-      sections,
-      threads: conversations,
-    };
+    const registered = new Set(directory.map(({ id }) => id));
+    const members = sections.filter(({ id }) => id !== "archive").flatMap(({ id, name, member_ids }) => {
+      const candidates = member_ids.filter((memberId) => registered.has(memberId));
+      const primary = candidates.find((memberId) => id === "team:" + memberId) ?? candidates[0];
+      return primary ? [{ id: primary, name }] : [];
+    });
+    return { members, sections, threads: conversations };
   }
   const boardThread = boardThreadPath.exec(path);
   if (req.method === "GET" && boardThread)
@@ -177,7 +227,7 @@ export async function conversationApi(req, path, { body, field, Problem }) {
   const directory = await developers();
   const member = directory.find(({ id }) => id === claimedId);
   if (!member)
-    throw new Problem(404, "Registra prima il tuo nome nella dashboard o con sportx_register_developer.");
+    throw new Problem(404, "Registra prima il tuo nome con sportx_register_developer.");
 
   if (req.method === "GET" && path === "/conversations") {
     return { me: member, members: directory, threads: await threads(pool, directory, member.id) };
@@ -188,14 +238,12 @@ export async function conversationApi(req, path, { body, field, Problem }) {
     const subject = field(data, "subject", 180);
     const reference = field({ reference: data.reference ?? "" }, "reference", 300, { empty: true });
     const message = field(data, "message", 20000);
-    const kind = data.kind ?? "question";
-    if (!["question", "notice"].includes(kind)) throw new Problem(400, "Tipo di conversazione non valido.");
     if (recipient === member.id || !directory.some(({ id }) => id === recipient))
       throw new Problem(400, "Seleziona un altro sviluppatore dall’elenco.");
     const id = randomUUID();
     await transaction(async (client) => {
       await client.query(`INSERT INTO conversation_threads(id,sender_id,recipient_id,subject,reference,kind)
-        VALUES($1,$2,$3,$4,$5,$6)`, [id, member.id, recipient, subject, reference, kind]);
+        VALUES($1,$2,$3,$4,$5,'question')`, [id, member.id, recipient, subject, reference]);
       await client.query(`INSERT INTO conversation_messages(thread_id,author_id,body,kind)
         VALUES($1,$2,$3,'message')`, [id, member.id, message]);
     });
@@ -211,7 +259,7 @@ export async function conversationApi(req, path, { body, field, Problem }) {
   const data = await body(req);
   return transaction(async (client) => {
     const { rows: [thread] } = await client.query(
-      `SELECT agreement_version FROM conversation_threads
+      `SELECT id FROM conversation_threads
        WHERE id=$1 AND (sender_id=$2 OR recipient_id=$2) FOR UPDATE`, [id, member.id],
     );
     if (!thread) throw new Problem(404, "Conversazione non trovata.");
@@ -229,32 +277,15 @@ export async function conversationApi(req, path, { body, field, Problem }) {
       return { ok: true };
     }
 
-    let version = null;
-    let kind = "message";
-    let message = "";
-    if (action === "confirmation") {
-      version = thread.agreement_version;
-      if (!version || data.version !== version)
-        throw new Problem(409, "La proposta è cambiata. Leggi la versione corrente prima di confermare.");
-      kind = "confirmation";
-    } else {
-      message = field(data, "message", 20000);
-      if (action === "proposal") {
-        if (data.version !== thread.agreement_version)
-          throw new Problem(409, "La proposta è cambiata. Rileggi la conversazione prima di proporre una versione.");
-        version = thread.agreement_version + 1;
-        kind = "proposal";
-      }
-    }
-    const { rows: [posted] } = await client.query(
-      `INSERT INTO conversation_messages(thread_id,author_id,body,kind,agreement_version)
-       VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING id`,
-      [id, member.id, message, kind, version],
+    const message = field(data, "message", 20000);
+    await client.query(
+      `INSERT INTO conversation_messages(thread_id,author_id,body,kind)
+       VALUES($1,$2,$3,'message')`,
+      [id, member.id, message],
     );
-    if (posted) await client.query(
-      "UPDATE conversation_threads SET updated_at=clock_timestamp(),agreement_version=COALESCE($2,agreement_version) WHERE id=$1",
-      [id, version],
+    await client.query(
+      "UPDATE conversation_threads SET updated_at=clock_timestamp() WHERE id=$1", [id],
     );
-    return { id, version };
+    return { id };
   });
 }

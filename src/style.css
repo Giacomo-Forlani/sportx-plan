@@ -1270,3 +1270,22 @@ button:disabled {
     flex-wrap: wrap;
   }
 }
+
+
+/* Destructive actions are separate from the primary save controls. */
+.section-heading .section-remove {
+  margin-left: auto;
+}
+.section-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.decision-remove {
+  margin-right: auto;
+  color: var(--danger);
+  border-color: var(--danger-line);
+  background: var(--danger-bg);
+}
+.decision-remove:hover:not(:disabled) {
+  background: var(--surface-hover);
+}

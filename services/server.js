@@ -107,7 +107,7 @@ async function api(req, path) {
       );
     return (
       await pool.query(
-        "INSERT INTO sections(code) VALUES($1) RETURNING id,code,revision",
+        "INSERT INTO sections(code,next_number) VALUES($1,COALESCE((SELECT next_number FROM deleted_section_counters WHERE code=$1),1)) RETURNING id,code,revision",
         [code],
       )
     ).rows[0];
@@ -133,6 +133,11 @@ async function api(req, path) {
       );
       if (inUse.rowCount)
         throw new Problem(409, "La sezione contiene attività: eliminale prima di cancellare la sezione.");
+      // Reserve the numbering even if this section code is recreated later.
+      await c.query(
+        "INSERT INTO deleted_section_counters(code,next_number) SELECT code,next_number FROM sections WHERE id=$1 ON CONFLICT(code) DO UPDATE SET next_number=GREATEST(deleted_section_counters.next_number,EXCLUDED.next_number)",
+        [section[1]],
+      );
       const deleted = await c.query(
         "DELETE FROM sections WHERE id=$1 RETURNING id,code",
         [section[1]],

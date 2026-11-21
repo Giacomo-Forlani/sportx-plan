@@ -68,7 +68,7 @@ async function snapshot() {
   try {
     await c.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const sections = await c.query(
-      "SELECT id,code FROM sections ORDER BY id",
+      "SELECT id,code,revision FROM sections ORDER BY id",
     );
     const tasks = await c.query("SELECT * FROM tasks ORDER BY position");
     const decisions = await c.query(
@@ -107,10 +107,44 @@ async function api(req, path) {
       );
     return (
       await pool.query(
-        "INSERT INTO sections(code) VALUES($1) RETURNING id,code",
+        "INSERT INTO sections(code) VALUES($1) RETURNING id,code,revision",
         [code],
       )
     ).rows[0];
+  }
+  const section = path.match(/^\/sections\/(\d+)$/);
+  if (section && req.method === "DELETE") {
+    const b = await body(req);
+    const expected = revision(b);
+    const c = await pool.connect();
+    try {
+      await c.query("BEGIN");
+      // Task creation locks this row before assigning a task ID.
+      // Check tasks in a subsequent statement after acquiring this lock.
+      const current = await c.query(
+        "SELECT id,code,revision FROM sections WHERE id=$1 FOR UPDATE",
+        [section[1]],
+      );
+      if (!current.rowCount || current.rows[0].revision !== expected)
+        throw new Problem(409, "La sezione è stata modificata o eliminata. Aggiorna i dati prima di riprovare.");
+      const inUse = await c.query(
+        "SELECT 1 FROM tasks WHERE section_id=$1 LIMIT 1",
+        [section[1]],
+      );
+      if (inUse.rowCount)
+        throw new Problem(409, "La sezione contiene attività: eliminale prima di cancellare la sezione.");
+      const deleted = await c.query(
+        "DELETE FROM sections WHERE id=$1 RETURNING id,code",
+        [section[1]],
+      );
+      await c.query("COMMIT");
+      return deleted.rows[0];
+    } catch (e) {
+      await c.query("ROLLBACK");
+      throw e;
+    } finally {
+      c.release();
+    }
   }
   if (req.method === "POST" && path === "/tasks") {
     const b = await body(req),
@@ -121,7 +155,7 @@ async function api(req, path) {
     try {
       await c.query("BEGIN");
       const s = await c.query(
-        "UPDATE sections SET next_number=next_number+1 WHERE id=$1 RETURNING code,next_number-1 AS number",
+        "UPDATE sections SET next_number=next_number+1,revision=revision+1 WHERE id=$1 RETURNING code,next_number-1 AS number",
         [b.section_id],
       );
       if (!s.rowCount) throw new Problem(400, "Sezione inesistente.");
@@ -172,6 +206,15 @@ async function api(req, path) {
     ).rows[0];
   }
   const decision = path.match(/^\/decisions\/(\d+)$/);
+  if (decision && req.method === "DELETE") {
+    const b = await body(req);
+    return changed(
+      await pool.query(
+        "DELETE FROM decisions WHERE id=$1 AND revision=$2 RETURNING id,code",
+        [decision[1], revision(b)],
+      ),
+    );
+  }
   if (decision && req.method === "PATCH") {
     const b = await body(req);
     return changed(

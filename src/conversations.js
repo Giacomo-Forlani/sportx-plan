@@ -61,10 +61,14 @@
 
     for (const group of board.sections) {
       const memberIds = new Set(group.member_ids);
-      const items = board.threads.filter(({ participants }) => participants.some(({ id }) => memberIds.has(id)))
+      const threadIds = group.thread_ids && new Set(group.thread_ids);
+      const items = board.threads
+        .filter(({ id, participants }) => threadIds
+          ? threadIds.has(id) : participants.some((person) => memberIds.has(person.id)))
         .map((item) => ({
           item,
-          unread: item.unread_by.some((id) => memberIds.has(id)),
+          unread: Object.entries(item.unread_counts)
+            .reduce((total, [id, count]) => memberIds.has(id) ? total + count : total, 0),
           waiting: item.waiting_by.some((id) => memberIds.has(id)),
         }));
       const section = element("section", "", "conversation-team-section");
@@ -87,13 +91,12 @@
         link.append(element("strong", item.subject));
         const [from, to] = item.participants;
         link.append(element("span", "Da " + from.name + " · A " + to.name, "conversation-meta"));
-        if (unread || waiting) {
-          const tags = element("span", "", "conversation-tags");
-          if (unread) tags.append(element("span", "Da leggere", "conversation-tag"));
-          if (waiting) tags.append(element("span", item.waiting_for === "confirmation"
-            ? "Da confermare" : "In attesa di risposta", "conversation-tag waiting"));
-          link.append(tags);
-        }
+        const tags = element("span", "", "conversation-tags");
+        tags.append(element("span", unread === 1 ? "1 messaggio da leggere" : unread + " messaggi da leggere",
+          unread ? "conversation-tag" : "conversation-tag read"));
+        if (waiting) tags.append(element("span", item.waiting_for === "confirmation"
+          ? "Da confermare" : "In attesa di risposta", "conversation-tag waiting"));
+        link.append(tags);
         link.append(element("span", item.preview || "Conferma del contratto", "conversation-snippet"));
         li.append(link);
         list.append(li);
@@ -119,7 +122,8 @@
     const author = $("conversation-reply-sender").value;
     const to = author && thread.participants.find(({ id }) => id !== author);
     $("conversation-reply-recipient").textContent = to ? "A " + to.name : "";
-    $("conversation-read").classList.toggle("hidden", !thread.unread_by.includes(author));
+    $("conversation-proposal-send").disabled = !author;
+    $("conversation-read").classList.toggle("hidden", !(thread.unread_counts[author] > 0));
     $("agreement-confirm").classList.toggle("hidden", !author || !thread.agreement_version ||
       thread.confirmed_by.includes(author));
   }
@@ -228,14 +232,19 @@
     const nextId = id && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(id) ? id : undefined;
     const changedThread = nextId !== activeId;
     if (changedThread) {
-      if (activeId && $("conversation-reply-text").value) drafts.set(activeId, {
-        text: $("conversation-reply-text").value, kind: $("conversation-reply-kind").value,
-        author: $("conversation-reply-sender").value,
-      });
+      if (activeId) {
+        const reply = $("conversation-reply-text").value;
+        const proposal = $("conversation-proposal-text").value;
+        if (reply || proposal) drafts.set(activeId, {
+          reply, proposal, author: $("conversation-reply-sender").value,
+        });
+        else drafts.delete(activeId);
+      }
       activeId = nextId;
       thread = undefined;
-      $("conversation-reply-text").value = drafts.get(activeId)?.text ?? "";
-      $("conversation-reply-kind").value = drafts.get(activeId)?.kind ?? "reply";
+      $("conversation-reply-text").value = drafts.get(activeId)?.reply ?? "";
+      $("conversation-proposal-text").value = drafts.get(activeId)?.proposal ?? "";
+      $("conversation-agreement-composer").open = Boolean(drafts.get(activeId)?.proposal);
       renderThread(activeId ? "Caricamento conversazione…" : undefined);
       renderBoard();
     }
@@ -288,7 +297,6 @@
       recipient: $("conversation-recipient").value,
       subject: $("conversation-new-subject").value,
       reference: $("conversation-new-reference").value,
-      kind: $("conversation-kind").value,
       message: $("conversation-new-text").value,
     }, author), ({ id }) => {
       remember(author);
@@ -297,23 +305,28 @@
       status("Messaggio inviato.");
     }, event.currentTarget.querySelector(".form-error"));
   };
-  $("conversation-reply").onsubmit = (event) => {
+  function postThreadText(event, draftField, action) {
     event.preventDefault();
-    const { id, agreement_version: version } = thread;
     const author = $("conversation-reply-sender").value;
-    const proposal = $("conversation-reply-kind").value === "proposal";
-    const message = $("conversation-reply-text").value;
-    void submit(event.submitter, () => api("/" + id + (proposal ? "/proposal" : "/replies"), "POST",
+    if (!author || !thread) return;
+    const { id, agreement_version: version } = thread;
+    const input = $("conversation-" + draftField + "-text");
+    const message = input.value;
+    const proposal = action === "proposal";
+    void submit(event.submitter, () => api("/" + id + "/" + action, "POST",
       proposal ? { message, version } : { message }, author), () => {
       remember(author);
-      drafts.delete(id);
-      if (id === activeId && $("conversation-reply-text").value === message) {
-        $("conversation-reply-text").value = "";
-        $("conversation-reply-kind").value = "reply";
+      const draft = drafts.get(id);
+      if (draft?.[draftField] === message) delete draft[draftField];
+      if (id === activeId && input.value === message) {
+        input.value = "";
+        if (proposal) $("conversation-agreement-composer").open = false;
       }
       status(proposal ? "Proposta pubblicata." : "Risposta inviata.");
     });
-  };
+  }
+  $("conversation-reply").onsubmit = (event) => postThreadText(event, "reply", "replies");
+  $("conversation-proposal").onsubmit = (event) => postThreadText(event, "proposal", "proposal");
   $("conversation-read").onclick = (event) => {
     const { id, messages } = thread;
     const author = $("conversation-reply-sender").value;

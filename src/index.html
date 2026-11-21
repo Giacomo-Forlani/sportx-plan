@@ -230,27 +230,32 @@
                     <p id="agreement-text" class="conversation-body"></p>
                   </section>
                   <ol id="conversation-messages" class="conversation-messages" aria-label="Messaggi"></ol>
-                  <form id="conversation-reply" class="conversation-reply">
+                  <section class="conversation-reply">
                     <h3>Rispondi</h3>
                     <div class="two-fields conversation-addresses">
-                      <label>Da<select id="conversation-reply-sender" required></select></label>
+                      <label>Da<select id="conversation-reply-sender" form="conversation-reply" required></select></label>
                       <p id="conversation-reply-recipient" class="conversation-meta"></p>
                     </div>
                     <div class="actions conversation-message-actions">
                       <button type="button" id="conversation-read" class="button hidden">Segna come letto</button>
                       <button type="button" id="agreement-confirm" class="button hidden">Conferma versione</button>
                     </div>
-                    <label>Messaggio<textarea id="conversation-reply-text" rows="4" maxlength="20000" required></textarea></label>
-                    <div class="conversation-reply-actions">
-                      <label>Tipo di risposta
-                        <select id="conversation-reply-kind">
-                          <option value="reply">Messaggio</option>
-                          <option value="proposal">Proposta di contratto</option>
-                        </select>
-                      </label>
-                      <button class="button primary" type="submit">Invia risposta</button>
-                    </div>
-                  </form>
+                    <form id="conversation-reply">
+                      <label>Messaggio<textarea id="conversation-reply-text" rows="4" maxlength="20000" required></textarea></label>
+                      <div class="conversation-reply-actions">
+                        <button class="button primary" type="submit">Invia risposta</button>
+                      </div>
+                    </form>
+                    <details id="conversation-agreement-composer" class="conversation-agreement-composer">
+                      <summary>Proponi un accordo</summary>
+                      <form id="conversation-proposal">
+                        <label>Proposta di accordo<textarea id="conversation-proposal-text" rows="4" maxlength="20000" required></textarea></label>
+                        <div class="conversation-reply-actions">
+                          <button id="conversation-proposal-send" class="button" type="submit" disabled>Pubblica proposta</button>
+                        </div>
+                      </form>
+                    </details>
+                  </section>
                 </div>
               </article>
             </div>
@@ -371,7 +376,6 @@
           <label>A<select id="conversation-recipient" required></select></label>
         </div>
         <label>Oggetto<input id="conversation-new-subject" required maxlength="180" /></label>
-        <label>Tipo<select id="conversation-kind"><option value="question">Domanda</option><option value="notice">Avviso</option></select></label>
         <label>Riferimento<input id="conversation-new-reference" maxlength="300" placeholder="ID attività, DEC o link" /></label>
         <label>Messaggio<textarea id="conversation-new-text" required rows="5" maxlength="20000"></textarea></label>
         <p class="form-error" role="alert"></p>

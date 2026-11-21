@@ -1457,6 +1457,7 @@ button:disabled {
   font-size: 0.75rem;
 }
 .conversation-tag.waiting { color: var(--warning); background: var(--warning-bg); }
+.conversation-tag.read { color: var(--muted); background: var(--surface-alt); }
 .conversation-meta,
 .conversation-message time { color: var(--muted); }
 .conversation-snippet {
@@ -1501,8 +1502,10 @@ button:disabled {
 .conversation-addresses { align-items: end; margin-bottom: 12px; }
 .conversation-message-actions { flex-wrap: wrap; margin-bottom: 12px; }
 .conversation-message-actions:not(:has(button:not(.hidden))) { display: none; }
-.conversation-reply-actions { align-items: end; margin-top: 10px; }
-.conversation-reply-actions label { max-width: 100%; }
+.conversation-reply-actions { justify-content: end; margin-top: 10px; }
+.conversation-agreement-composer { margin-top: 16px; }
+.conversation-agreement-composer summary { cursor: pointer; color: var(--accent); }
+.conversation-agreement-composer form { margin-top: 12px; }
 
 @media (max-width: 880px) {
   .conversation-layout { grid-template-columns: minmax(0, 1fr); }

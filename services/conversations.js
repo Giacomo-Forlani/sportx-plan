@@ -62,10 +62,11 @@ async function threads(client, directory, memberId = null, id = null) {
       (t.kind='question' AND NOT EXISTS(
         SELECT FROM conversation_messages m WHERE m.thread_id=t.id AND m.author_id=t.recipient_id
       )) AS owes_reply,
-      ARRAY(SELECT p.id FROM unnest(ARRAY[t.sender_id,t.recipient_id]) AS p(id)
-        LEFT JOIN conversation_reads r ON r.thread_id=t.id AND r.member_id=p.id
-        WHERE EXISTS(SELECT FROM conversation_messages m WHERE m.thread_id=t.id
-          AND m.author_id<>p.id AND m.id>COALESCE(r.through_id,0))) AS unread_by,
+      (SELECT jsonb_object_agg(p.id, (
+        SELECT count(*) FROM conversation_messages m WHERE m.thread_id=t.id
+          AND m.author_id<>p.id AND m.id>COALESCE(r.through_id,0)))
+        FROM unnest(ARRAY[t.sender_id,t.recipient_id]) AS p(id)
+        LEFT JOIN conversation_reads r ON r.thread_id=t.id AND r.member_id=p.id) AS unread_counts,
       ARRAY(SELECT m.author_id FROM conversation_messages m WHERE m.thread_id=t.id
         AND m.kind='confirmation' AND m.agreement_version=t.agreement_version
         ORDER BY m.id) AS confirmed_by
@@ -86,11 +87,13 @@ async function threads(client, directory, memberId = null, id = null) {
     const thread = {
       ...row,
       participants: member_ids.map((personId) => byId.get(personId) ?? { id: personId, name: personId }),
+      unread_by: member_ids.filter((personId) => row.unread_counts[personId] > 0),
       waiting_by: waitingBy,
       waiting_for: awaitingAgreement ? "confirmation" : owes_reply ? "reply" : null,
     };
     if (memberId) {
-      thread.unread = row.unread_by.includes(memberId);
+      thread.unread_count = row.unread_counts[memberId];
+      thread.unread = thread.unread_count > 0;
       thread.waiting_for_you = waitingBy.includes(memberId);
     }
     return thread;
@@ -104,16 +107,28 @@ function boardSections(directory, conversations) {
     const name = entry.trim();
     if (name) groups.set("team:" + firstName(name), { name, member_ids: [] });
   }
+  const configured = groups.size > 0;
   const known = new Map(directory.map((member) => [member.id, member]));
   for (const { participants } of conversations) {
     for (const participant of participants) {
       if (!known.has(participant.id)) known.set(participant.id, participant);
     }
   }
+  const assigned = new Set();
   for (const { id, name } of known.values()) {
     const team = groups.get("team:" + firstName(name)) ?? groups.get("team:" + id.split("-")[0]);
-    if (team) team.member_ids.push(id);
-    else groups.set("developer:" + id, { name, member_ids: [id] });
+    if (team) {
+      team.member_ids.push(id);
+      assigned.add(id);
+    } else if (!configured) groups.set("developer:" + id, { name, member_ids: [id] });
+  }
+  if (configured) {
+    const archived = conversations.filter(({ participants }) => participants.every(({ id }) => !assigned.has(id)));
+    if (archived.length) groups.set("archive", {
+      name: "Archivio",
+      member_ids: [...new Set(archived.flatMap(({ participants }) => participants.map(({ id }) => id)))],
+      thread_ids: archived.map(({ id }) => id),
+    });
   }
   return [...groups].map(([id, group]) => ({ id, ...group }));
 }
@@ -145,7 +160,13 @@ export async function conversationApi(req, path, { body, field, Problem }) {
   if (req.method === "GET" && path === "/conversations/board") {
     const directory = await developers();
     const conversations = await threads(pool, directory);
-    return { members: directory, sections: boardSections(directory, conversations), threads: conversations };
+    const sections = boardSections(directory, conversations);
+    const active = new Set(sections.filter(({ id }) => id !== "archive").flatMap(({ member_ids }) => member_ids));
+    return {
+      members: directory.filter(({ id }) => active.has(id)),
+      sections,
+      threads: conversations,
+    };
   }
   const boardThread = boardThreadPath.exec(path);
   if (req.method === "GET" && boardThread)

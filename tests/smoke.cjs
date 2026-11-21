@@ -311,6 +311,8 @@ const puppeteer = require(
       assert.equal(await page.evaluate(() => localStorage.getItem("sportx.conversations.developer")), null);
     }
     await a.click("#conversation-new");
+    assert.deepEqual(await a.$$eval("#conversation-compose select", (nodes) => nodes.map((node) => node.id)),
+      ["conversation-sender", "conversation-recipient"]);
     await a.select("#conversation-sender", "ada-rossi");
     await a.select("#conversation-recipient", "luca-bianchi");
     await a.type("#conversation-new-subject", "Evento PaymentVerified");
@@ -318,6 +320,9 @@ const puppeteer = require(
     await a.type("#conversation-new-text", "Puoi usare membershipRequestId?");
     await a.click("#conversation-compose button[type=submit]");
     await a.waitForSelector("#conversation-thread", { visible: true });
+    await a.type("#conversation-reply-text", "Aggiungo anche un esempio.");
+    await a.click("#conversation-reply button[type=submit]");
+    await a.waitForFunction(() => document.querySelectorAll("#conversation-messages .conversation-message").length === 2);
     await b.click("#refresh");
     await b.waitForSelector(".conversation-item .conversation-tag", { visible: true });
     assert.equal(await b.$$eval(".conversation-item", (nodes) => nodes.length), 2);
@@ -327,17 +332,21 @@ const puppeteer = require(
     assert.equal(await b.$eval(".conversation-message-header strong", (node) => node.textContent),
       "Da Ada Rossi · A Luca Bianchi");
     assert.equal(await b.evaluate(() => localStorage.getItem("sportx.conversations.developer")), null);
-    assert.ok(await b.$$eval(".conversation-item .conversation-tag", (nodes) =>
-      nodes.some((node) => node.textContent === "Da leggere")));
+    assert.deepEqual(await b.$$eval(".conversation-item .conversation-tags .conversation-tag:first-child",
+      (nodes) => nodes.map((node) => node.textContent)), ["0 messaggi da leggere", "2 messaggi da leggere"]);
+    assert.deepEqual(await b.$$eval(".conversation-reply select", (nodes) => nodes.map((node) => node.id)),
+      ["conversation-reply-sender"]);
     await b.select("#conversation-reply-sender", "luca-bianchi");
     await b.waitForSelector("#conversation-read", { visible: true });
     await b.click("#conversation-read");
     await b.waitForSelector("#conversation-read", { hidden: true });
+    assert.deepEqual(await b.$$eval(".conversation-item .conversation-tags .conversation-tag:first-child",
+      (nodes) => nodes.map((node) => node.textContent)), ["0 messaggi da leggere", "0 messaggi da leggere"]);
     await b.select("#conversation-filter", "waiting");
     await b.waitForSelector(".conversation-item", { visible: true });
-    await b.type("#conversation-reply-text", "Servono membershipRequestId e paymentId.");
-    await b.select("#conversation-reply-kind", "proposal");
-    await b.click("#conversation-reply button[type=submit]");
+    await b.click("#conversation-agreement-composer summary");
+    await b.type("#conversation-proposal-text", "Servono membershipRequestId e paymentId.");
+    await b.click("#conversation-proposal-send");
     await b.waitForSelector("#agreement-confirm", { visible: true });
     await b.click("#agreement-confirm");
     await b.waitForSelector("#agreement-confirm", { hidden: true });

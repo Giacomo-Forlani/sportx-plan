@@ -7,6 +7,7 @@
     "start": "node services/server.js",
     "test": "node --test tests/api.test.js",
     "test:browser": "node tests/smoke.cjs",
+    "test:layout": "node tests/markdown-layout.cjs",
     "test:mcp": "node --test tests/mcp.test.js"
   },
   "dependencies": {

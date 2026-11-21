@@ -132,7 +132,18 @@
         requestId !== previewRequestId ||
         $("document-preview").classList.contains("hidden")
       ) return;
-      $("document-preview").innerHTML = result.html;
+      const preview = $("document-preview");
+      preview.innerHTML = result.html;
+      // Keep wide tables scrollable in place, even in long Markdown documents.
+      for (const table of preview.querySelectorAll("table")) {
+        const scroll = document.createElement("div");
+        scroll.className = "markdown-table-scroll";
+        scroll.tabIndex = 0;
+        scroll.setAttribute("role", "region");
+        scroll.setAttribute("aria-label", "Tabella: scorri orizzontalmente per leggere tutte le colonne");
+        table.before(scroll);
+        scroll.appendChild(table);
+      }
       previewMarkdown = markdown;
     } catch (e) {
       if (requestId === previewRequestId) message(e.message, true);

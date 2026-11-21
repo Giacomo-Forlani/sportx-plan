@@ -186,6 +186,11 @@ const puppeteer = require(
     );
     await a.click('[data-view="documento"]');
     await a.waitForSelector("#document-preview:not(.hidden) h1");
+    await a.waitForSelector("#document-preview .markdown-table-scroll table");
+    assert.equal(
+      await a.$eval("#document-preview .markdown-table-scroll", (e) => e.tabIndex),
+      0,
+    );
     assert.equal(await a.$eval("#preview-document", (e) => e.textContent.trim()), "Modifica testo");
     assert.equal(await a.$eval("#document-text", (e) => e.classList.contains("hidden")), true);
     assert.equal(await a.$("#save-document"), null);

@@ -43,7 +43,7 @@ test("seed, numbering under concurrency, deletion, conflicts, ordering, persiste
   assert.equal(state.decisions.length, 15);
   assert.ok(state.document.markdown.includes("OPES"));
   const section = await request("/sections", "POST", { code: "QA" });
-  assert.deepEqual(Object.keys(section).sort(), ["code", "id"]);
+  assert.deepEqual(Object.keys(section).sort(), ["code", "id", "revision"]);
   await request("/sections", "POST", { code: "qa" }, 409);
   const tasks = await Promise.all(
     Array.from({ length: 12 }, () =>
@@ -149,6 +149,76 @@ test("seed, numbering under concurrency, deletion, conflicts, ordering, persiste
   assert.equal(state.document.revision, doc.revision);
   assert.ok(state.tasks.some((t) => t.id === "QA-13"));
   assert.equal(state.tasks.filter((t) => t.id === "DISC-01").length, 1);
+});
+
+test("delete empty sections and decisions with revision checks; preserve numbering", async () => {
+  const section = await request("/sections", "POST", { code: "DEL" });
+  assert.equal(section.revision, 1);
+  await request("/sections/" + section.id, "DELETE", { revision: 0 }, 400);
+  await request("/sections/" + section.id, "DELETE", { revision: 99 }, 409);
+  const first = await request("/tasks", "POST", input(section.id));
+  assert.equal(first.id, "DEL-01");
+  await request("/sections/" + section.id, "DELETE", { revision: section.revision }, 409);
+  let current = (await request("/state")).sections.find((s) => s.id === section.id);
+  assert.equal(current.revision, section.revision + 1);
+  const busy = await request("/sections/" + section.id, "DELETE", { revision: current.revision }, 409);
+  assert.match(busy.error, /contiene attività/);
+  await request("/tasks/" + first.id, "DELETE", { revision: first.revision });
+  const gone = await request("/sections/" + section.id, "DELETE", { revision: current.revision });
+  assert.equal(gone.code, "DEL");
+  await request("/sections/" + section.id, "DELETE", { revision: current.revision }, 409);
+  assert.ok(!(await request("/state")).sections.some((s) => s.id === section.id));
+  const recreated = await request("/sections", "POST", { code: "DEL" });
+  assert.notEqual(recreated.id, section.id);
+  const next = await request("/tasks", "POST", input(recreated.id));
+  assert.equal(next.id, "DEL-02", "Deleting/recreating a section must not reuse task IDs.");
+  await request("/tasks/" + next.id, "DELETE", { revision: next.revision });
+  current = (await request("/state")).sections.find((s) => s.id === recreated.id);
+  await request("/sections/" + recreated.id, "DELETE", { revision: current.revision });
+
+  const decision = await request("/decisions", "POST", { question: "Eliminare?", answer: "" });
+  await request("/decisions/" + decision.id, "DELETE", { revision: 0 }, 400);
+  await request("/decisions/" + decision.id, "DELETE", { revision: 99 }, 409);
+  const changed = await request("/decisions/" + decision.id, "PATCH", {
+    ...decision, answer: "Sì",
+  });
+  await request("/decisions/" + decision.id, "DELETE", { revision: decision.revision }, 409);
+  const removed = await request("/decisions/" + decision.id, "DELETE", { revision: changed.revision });
+  assert.equal(removed.id, decision.id);
+  await request("/decisions/" + decision.id, "DELETE", { revision: changed.revision }, 409);
+  assert.ok(!(await request("/state")).decisions.some((d) => d.id === decision.id));
+});
+
+test("simultaneous task creation and section deletion cannot orphan tasks", async () => {
+  const section = await request("/sections", "POST", { code: "RACE" });
+  const r = await Promise.all([
+    fetch(base + "/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input(section.id)),
+    }),
+    fetch(base + "/sections/" + section.id, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ revision: section.revision }),
+    }),
+  ]);
+  const statuses = r.map((x) => x.status);
+  assert.ok(
+    (statuses[0] === 200 && statuses[1] === 409) ||
+    (statuses[0] === 400 && statuses[1] === 200),
+    "Unexpected concurrent outcomes: " + statuses.join(","),
+  );
+  const snapshot = await request("/state");
+  for (const task of snapshot.tasks) {
+    assert.ok(snapshot.sections.some((s) => s.id === task.section_id), task.id + " is orphaned.");
+  }
+  if (statuses[0] === 200) {
+    const task = await r[0].json();
+    await request("/tasks/" + task.id, "DELETE", { revision: task.revision });
+    const fresh = snapshot.sections.find((s) => s.id === section.id);
+    await request("/sections/" + section.id, "DELETE", { revision: fresh.revision });
+  }
 });
 
 test("migration removes legacy section name without losing existing data", async () => {

@@ -2,7 +2,9 @@ import { createHash, randomUUID } from "node:crypto";
 import { pool } from "./db.js";
 
 const developerId = /^[a-z0-9][a-z0-9-]{0,63}$/;
-const threadPath = /^\/conversations\/([a-f0-9-]{36})(?:\/(replies|read|proposal|confirmation))?$/;
+const uuid = "[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}";
+const threadPath = new RegExp("^/conversations/(" + uuid + ")(?:/(replies|read|proposal|confirmation))?$");
+const boardThreadPath = new RegExp("^/conversations/board/(" + uuid + ")$");
 
 function slug(name) {
   return name.normalize("NFKD").replace(/\p{M}/gu, "")
@@ -47,35 +49,90 @@ async function transaction(run, begin = "BEGIN") {
   }
 }
 
-async function threads(client, member, directory, id = null) {
+async function developers() {
+  const { rows } = await pool.query("SELECT id,name FROM conversation_developers ORDER BY name,id");
+  return rows;
+}
+
+async function threads(client, directory, memberId = null, id = null) {
   const { rows } = await client.query(
     `SELECT t.id,t.subject,t.reference,t.kind,t.agreement_version,t.updated_at,
       ARRAY[t.sender_id,t.recipient_id] AS member_ids,
       left(latest.body,280) AS preview,
-      (t.kind='question' AND t.recipient_id=$1 AND NOT EXISTS(
-        SELECT FROM conversation_messages m WHERE m.thread_id=t.id AND m.author_id=$1
+      (t.kind='question' AND NOT EXISTS(
+        SELECT FROM conversation_messages m WHERE m.thread_id=t.id AND m.author_id=t.recipient_id
       )) AS owes_reply,
-      EXISTS(SELECT FROM conversation_messages m WHERE m.thread_id=t.id
-        AND m.author_id<>$1 AND m.id>COALESCE(r.through_id,0)) AS unread,
+      ARRAY(SELECT p.id FROM unnest(ARRAY[t.sender_id,t.recipient_id]) AS p(id)
+        LEFT JOIN conversation_reads r ON r.thread_id=t.id AND r.member_id=p.id
+        WHERE EXISTS(SELECT FROM conversation_messages m WHERE m.thread_id=t.id
+          AND m.author_id<>p.id AND m.id>COALESCE(r.through_id,0))) AS unread_by,
       ARRAY(SELECT m.author_id FROM conversation_messages m WHERE m.thread_id=t.id
         AND m.kind='confirmation' AND m.agreement_version=t.agreement_version
         ORDER BY m.id) AS confirmed_by
      FROM conversation_threads t
-     LEFT JOIN conversation_reads r ON r.thread_id=t.id AND r.member_id=$1
      JOIN LATERAL (SELECT body FROM conversation_messages WHERE thread_id=t.id
        ORDER BY id DESC LIMIT 1) latest ON true
-     WHERE (t.sender_id=$1 OR t.recipient_id=$1) AND ($2::uuid IS NULL OR t.id=$2)
+     WHERE ($1::text IS NULL OR t.sender_id=$1 OR t.recipient_id=$1)
+       AND ($2::uuid IS NULL OR t.id=$2)
      ORDER BY t.updated_at DESC,t.id DESC`,
-    [member.id, id],
+    [memberId, id],
   );
   const byId = new Map(directory.map((person) => [person.id, person]));
-  return rows.map(({ member_ids, owes_reply, ...row }) => ({
-    ...row,
-    participants: member_ids.map((personId) => byId.get(personId) ?? { id: personId, name: personId }),
-    waiting_for_you: row.agreement_version && row.confirmed_by.length < member_ids.length
-      ? !row.confirmed_by.includes(member.id)
-      : owes_reply,
-  }));
+  return rows.map(({ member_ids, owes_reply, ...row }) => {
+    const awaitingAgreement = row.agreement_version > 0 && row.confirmed_by.length < member_ids.length;
+    const waitingBy = awaitingAgreement
+      ? member_ids.filter((personId) => !row.confirmed_by.includes(personId))
+      : owes_reply ? [member_ids[1]] : [];
+    const thread = {
+      ...row,
+      participants: member_ids.map((personId) => byId.get(personId) ?? { id: personId, name: personId }),
+      waiting_by: waitingBy,
+      waiting_for: awaitingAgreement ? "confirmation" : owes_reply ? "reply" : null,
+    };
+    if (memberId) {
+      thread.unread = row.unread_by.includes(memberId);
+      thread.waiting_for_you = waitingBy.includes(memberId);
+    }
+    return thread;
+  });
+}
+
+function boardSections(directory, conversations) {
+  const groups = new Map();
+  const firstName = (name) => slug(name.trim().toLowerCase().split(/\s+/u)[0]);
+  for (const entry of (process.env.SPORTX_CONVERSATION_TEAM ?? "").split(",")) {
+    const name = entry.trim();
+    if (name) groups.set("team:" + firstName(name), { name, member_ids: [] });
+  }
+  const known = new Map(directory.map((member) => [member.id, member]));
+  for (const { participants } of conversations) {
+    for (const participant of participants) {
+      if (!known.has(participant.id)) known.set(participant.id, participant);
+    }
+  }
+  for (const { id, name } of known.values()) {
+    const team = groups.get("team:" + firstName(name)) ?? groups.get("team:" + id.split("-")[0]);
+    if (team) team.member_ids.push(id);
+    else groups.set("developer:" + id, { name, member_ids: [id] });
+  }
+  return [...groups].map(([id, group]) => ({ id, ...group }));
+}
+
+async function threadDetail(directory, id, Problem, memberId = null) {
+  return transaction(async (client) => {
+    const [thread] = await threads(client, directory, memberId, id);
+    if (!thread) throw new Problem(404, "Conversazione non trovata.");
+    const [sender, recipient] = thread.participants;
+    const { rows } = await client.query(
+      `SELECT id,author_id,body,kind,agreement_version,created_at FROM conversation_messages
+       WHERE thread_id=$1 ORDER BY id`, [id],
+    );
+    const messages = rows.map((message) => ({
+      ...message,
+      recipient_id: message.author_id === sender.id ? recipient.id : sender.id,
+    }));
+    return { ...thread, messages };
+  }, "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
 }
 
 export async function conversationApi(req, path, { body, field, Problem }) {
@@ -83,15 +140,24 @@ export async function conversationApi(req, path, { body, field, Problem }) {
   if (req.method === "POST" && path === "/conversations/developers")
     return registerDeveloper(await body(req), claimedId, { field, Problem });
 
+  if (req.method === "GET" && path === "/conversations/board") {
+    const directory = await developers();
+    const conversations = await threads(pool, directory);
+    return { members: directory, sections: boardSections(directory, conversations), threads: conversations };
+  }
+  const boardThread = boardThreadPath.exec(path);
+  if (req.method === "GET" && boardThread)
+    return threadDetail(await developers(), boardThread[1], Problem);
+
   if (typeof claimedId !== "string" || !developerId.test(claimedId))
-    throw new Problem(400, "Scegli il tuo nome nella dashboard o imposta SPORTX_DEVELOPER nell’ambiente dell’agente.");
-  const { rows: directory } = await pool.query("SELECT id,name FROM conversation_developers ORDER BY name,id");
+    throw new Problem(400, "Scegli il mittente oppure imposta SPORTX_DEVELOPER nell’ambiente dell’agente.");
+  const directory = await developers();
   const member = directory.find(({ id }) => id === claimedId);
   if (!member)
     throw new Problem(404, "Registra prima il tuo nome nella dashboard o con sportx_register_developer.");
 
   if (req.method === "GET" && path === "/conversations") {
-    return { me: member, members: directory, threads: await threads(pool, member, directory) };
+    return { me: member, members: directory, threads: await threads(pool, directory, member.id) };
   }
   if (req.method === "POST" && path === "/conversations") {
     const data = await body(req);
@@ -114,20 +180,10 @@ export async function conversationApi(req, path, { body, field, Problem }) {
   }
 
   const match = threadPath.exec(path);
-  if (!match || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(match[1]))
-    throw new Problem(404, "Conversazione non trovata.");
+  if (!match) throw new Problem(404, "Conversazione non trovata.");
   const [, id, action] = match;
-  if (req.method === "GET" && !action) {
-    return transaction(async (client) => {
-      const [thread] = await threads(client, member, directory, id);
-      if (!thread) throw new Problem(404, "Conversazione non trovata.");
-      const { rows: messages } = await client.query(
-        `SELECT id,author_id,body,kind,agreement_version,created_at FROM conversation_messages
-         WHERE thread_id=$1 ORDER BY id`, [id],
-      );
-      return { ...thread, messages };
-    }, "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
-  }
+  if (req.method === "GET" && !action)
+    return threadDetail(directory, id, Problem, member.id);
   if (req.method !== "POST" || !action) throw new Problem(404, "Operazione non trovata.");
   const data = await body(req);
   return transaction(async (client) => {

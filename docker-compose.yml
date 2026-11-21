@@ -34,6 +34,7 @@ services:
       PGDATABASE: sportx_plan
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Dokploy Environment}
       SPORTX_MCP_TOKEN: ${SPORTX_MCP_TOKEN:-}
+      SPORTX_CONVERSATION_TEAM: ${SPORTX_CONVERSATION_TEAM:-}
     expose:
       - "8791"
     networks:

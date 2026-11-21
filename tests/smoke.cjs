@@ -7,12 +7,21 @@ const puppeteer = require(
   if (!process.env.PGDATABASE?.endsWith("_test"))
     throw new Error("Use PGDATABASE ending in _test.");
   process.env.NODE_ENV = "test";
+  process.env.SPORTX_CONVERSATION_TEAM = "Ada,Luca,Marta";
   const { pool } = await import("../services/db.js");
   const { start } = await import("../services/server.js");
   const database = await pool.query("SELECT current_database() AS name");
   assert.equal(database.rows[0].name, process.env.PGDATABASE, "Database di test inatteso");
   await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public");
   const server = await start(0);
+  for (const name of ["Ada Rossi", "Luca Bianchi"]) {
+    const response = await fetch("http://127.0.0.1:" + server.address().port + "/api/conversations/developers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    assert.equal(response.status, 200);
+  }
   const browser = await puppeteer.launch({
     executablePath:
       process.env.CHROME_BIN ||
@@ -293,17 +302,16 @@ const puppeteer = require(
       (await a.evaluate(async () => (await (await fetch("./api/state")).json()).document.markdown)),
       savedDocument.markdown,
     );
-    // The inbox uses two independent browser identities and the same conversation.
-    for (const [page, name] of [[a, "Ada Rossi"], [b, "Luca Bianchi"]]) {
+    // Two browser sessions can browse the team inbox without a saved identity.
+    for (const page of [a, b]) {
       await page.click('[data-view="conversazioni"]');
-      await page.type("#conversation-developer", name);
-      await page.click("#conversation-login button[type=submit]");
-      await page.waitForSelector("#conversation-workspace", { visible: true });
+      await page.waitForSelector(".conversation-team-heading", { visible: true });
+      assert.deepEqual(await page.$$eval(".conversation-team-heading span:first-child",
+        (nodes) => nodes.map((node) => node.textContent)), ["Ada", "Luca", "Marta"]);
+      assert.equal(await page.evaluate(() => localStorage.getItem("sportx.conversations.developer")), null);
     }
-    await a.reload({ waitUntil: "networkidle0" });
-    await a.waitForFunction(() => document.querySelector("#conversation-account").textContent === "Casella di Ada Rossi");
-    await a.waitForSelector("#conversation-new", { visible: true });
     await a.click("#conversation-new");
+    await a.select("#conversation-sender", "ada-rossi");
     await a.select("#conversation-recipient", "luca-bianchi");
     await a.type("#conversation-new-subject", "Evento PaymentVerified");
     await a.type("#conversation-new-reference", "DEC-02");
@@ -312,7 +320,16 @@ const puppeteer = require(
     await a.waitForSelector("#conversation-thread", { visible: true });
     await b.click("#refresh");
     await b.waitForSelector(".conversation-item .conversation-tag", { visible: true });
+    assert.equal(await b.$$eval(".conversation-item", (nodes) => nodes.length), 2);
     await b.click(".conversation-item");
+    await b.waitForSelector("#conversation-messages .conversation-message", { visible: true });
+    assert.equal(await b.$eval("#conversation-subject", (node) => node.textContent), "Evento PaymentVerified");
+    assert.equal(await b.$eval(".conversation-message-header strong", (node) => node.textContent),
+      "Da Ada Rossi · A Luca Bianchi");
+    assert.equal(await b.evaluate(() => localStorage.getItem("sportx.conversations.developer")), null);
+    assert.ok(await b.$$eval(".conversation-item .conversation-tag", (nodes) =>
+      nodes.some((node) => node.textContent === "Da leggere")));
+    await b.select("#conversation-reply-sender", "luca-bianchi");
     await b.waitForSelector("#conversation-read", { visible: true });
     await b.click("#conversation-read");
     await b.waitForSelector("#conversation-read", { hidden: true });

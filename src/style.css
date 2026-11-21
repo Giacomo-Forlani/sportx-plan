@@ -1392,18 +1392,9 @@ button:disabled {
   color: var(--danger);
 }
 
-.conversation-login {
-  display: grid;
-  gap: 16px;
-  max-width: 430px;
-  padding: 24px;
-  justify-items: start;
-}
-.conversation-login label { width: 100%; }
 .conversation-status { margin: 0; }
 .conversation-status:not(:empty) { margin-bottom: 14px; color: var(--muted); }
 .conversation-status.error { color: var(--danger); }
-.conversation-toolbar,
 .conversation-thread-header,
 .conversation-reply-actions,
 .conversation-message-header,
@@ -1414,8 +1405,6 @@ button:disabled {
   justify-content: space-between;
   gap: 10px;
 }
-.conversation-toolbar { margin-bottom: 12px; }
-.conversation-toolbar p,
 .conversation-thread-header p { margin: 5px 0 0; }
 .conversation-layout {
   display: grid;
@@ -1426,6 +1415,20 @@ button:disabled {
 .conversation-inbox,
 .conversation-detail { min-width: 0; }
 .conversation-filter { margin: 14px; }
+.conversation-team-section { border-top: 1px solid var(--line); }
+.conversation-team-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 11px 14px;
+  background: var(--surface-alt);
+  font-size: 0.95rem;
+}
+.conversation-team-section .conversation-empty { padding: 11px 14px; }
+.conversation-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .conversation-list,
 .conversation-messages {
   list-style: none;
@@ -1453,6 +1456,7 @@ button:disabled {
   background: var(--accent-bg);
   font-size: 0.75rem;
 }
+.conversation-tag.waiting { color: var(--warning); background: var(--warning-bg); }
 .conversation-meta,
 .conversation-message time { color: var(--muted); }
 .conversation-snippet {
@@ -1486,7 +1490,6 @@ button:disabled {
 }
 .conversation-agreement h3 { margin: 0; font-size: 1rem; }
 .conversation-agreement p { margin: 8px 0; }
-.conversation-agreement button { margin-top: 6px; }
 .conversation-body {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -1494,6 +1497,10 @@ button:disabled {
   line-height: 1.5;
 }
 .conversation-reply { border-top: 1px solid var(--line-soft); }
+.conversation-reply h3 { margin: 0 0 12px; font-size: 1rem; }
+.conversation-addresses { align-items: end; margin-bottom: 12px; }
+.conversation-message-actions { flex-wrap: wrap; margin-bottom: 12px; }
+.conversation-message-actions:not(:has(button:not(.hidden))) { display: none; }
 .conversation-reply-actions { align-items: end; margin-top: 10px; }
 .conversation-reply-actions label { max-width: 100%; }
 

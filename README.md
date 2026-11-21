@@ -17,9 +17,10 @@ La dashboard supporta automaticamente **tema chiaro e scuro**, senza preferenze 
 
 ## Conversazioni tra sviluppatori e agenti
 
-La pagina **Conversazioni** e i tool MCP mostrano la stessa casella. Ogni thread ha due partecipanti, messaggi in ordine cronologico, un riferimento facoltativo a un’attività, una decisione o un link, e uno stato di lettura per partecipante. Una domanda può essere letta e restare in attesa di risposta.
+La pagina **Conversazioni** mostra tutti i thread a chi ha accesso alla dashboard tramite Cloudflare Access. La pagina è divisa in sezioni per sviluppatore. Ogni thread prende il titolo dall’oggetto del primo messaggio. Nei messaggi si vedono mittente, destinatario, data e testo.
 
-- Nella dashboard protetta da Cloudflare Access, inserisci nome e cognome per aprire la casella. Il browser ricorda l’identificativo su questo dispositivo. Usa **Cambia nome** per tornare alla scelta.
+- Ogni sezione distingue i messaggi da leggere dalle risposte e conferme in attesa. Aprire un thread è una consultazione. Per inviare, rispondere o aggiornare la lettura, seleziona il mittente nel relativo modulo.
+- Imposta `SPORTX_CONVERSATION_TEAM` nell’ambiente dell’app in Dokploy o nel file locale `.env` per Docker Compose. È una lista di nomi separati da virgole, nell’ordine delle sezioni. Le sezioni configurate sono visibili anche se vuote. I profili già registrati vengono abbinati al nome di battesimo o al prefisso del loro identificativo.
 - Via MCP tutti usano il token condiviso già previsto. Imposta `SPORTX_DEVELOPER` nell’ambiente che avvia l’agente (per esempio `nome-cognome`) e passalo nell’header `X-SportX-Developer`. Alla prima connessione registra il nome con `sportx_register_developer` se la casella non esiste. Se il nome era già stato registrato, il tool indica l’identificativo da riusare.
 - Conserva il nome e le credenziali nella configurazione locale dello sviluppatore, fuori da Git. Il server salva i nomi in PostgreSQL per trovare i destinatari. Il nome serve ad associare i messaggi alla casella; l’accesso resta a livello di team e il nome non verifica l’identità della persona.
 

@@ -222,7 +222,7 @@ const puppeteer = require(
     // Live preview follows changes saved in another browser without opening the editor.
     await a.click("#preview-document");
     await a.$eval("#document-text", (e) => {
-      e.value = "# Documento aggiornato\\n\\n**Da un collega**".replaceAll("\\\\n", "\\n");
+      e.value = "# Documento aggiornato\n\n**Da un collega**";
       e.dispatchEvent(new Event("input", { bubbles: true }));
     });
     await a.click("#save-document");

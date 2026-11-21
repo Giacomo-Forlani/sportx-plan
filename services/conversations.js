@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { pool } from "./db.js";
+import { pool, transaction } from "./db.js";
 
 const developerId = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const uuid = "[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}";
@@ -93,21 +93,6 @@ async function registerDeveloper(data, claimedId, { field, Problem }) {
   });
 }
 
-async function transaction(run, begin = "BEGIN") {
-  const client = await pool.connect();
-  try {
-    await client.query(begin);
-    const result = await run(client);
-    await client.query("COMMIT");
-    return result;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
 async function developers(client = pool) {
   const { rows } = await client.query("SELECT id,name FROM conversation_developers ORDER BY name,id");
   return rows;
@@ -182,6 +167,25 @@ function boardSections(directory, conversations) {
   return [...groups].map(([id, group]) => ({ id, ...group }));
 }
 
+function selectableDevelopers(directory, sections = boardSections(directory, [])) {
+  const registered = new Set(directory.map(({ id }) => id));
+  return sections.filter(({ id }) => id !== "archive").flatMap(({ id, name, member_ids }) => {
+    const candidates = member_ids.filter((memberId) => registered.has(memberId));
+    const primary = candidates.find((memberId) => id === "team:" + memberId) ?? candidates[0];
+    return primary ? [{ id: primary, name }] : [];
+  });
+}
+
+export async function conversationTeam(client) {
+  return selectableDevelopers(await developers(client));
+}
+
+function messageId(value, Problem) {
+  if (typeof value !== "string" || !/^[1-9][0-9]{0,18}$/.test(value) || BigInt(value) > 9223372036854775807n)
+    throw new Problem(400, "ID dell’ultimo messaggio non valido.");
+  return value;
+}
+
 async function threadDetail(directory, id, Problem, memberId = null) {
   return transaction(async (client) => {
     const [thread] = await threads(client, directory, memberId, id);
@@ -210,13 +214,7 @@ export async function conversationApi(req, path, { body, field, Problem }) {
     const directory = await developers();
     const conversations = await threads(pool, directory);
     const sections = boardSections(directory, conversations);
-    const registered = new Set(directory.map(({ id }) => id));
-    const members = sections.filter(({ id }) => id !== "archive").flatMap(({ id, name, member_ids }) => {
-      const candidates = member_ids.filter((memberId) => registered.has(memberId));
-      const primary = candidates.find((memberId) => id === "team:" + memberId) ?? candidates[0];
-      return primary ? [{ id: primary, name }] : [];
-    });
-    return { members, sections, threads: conversations };
+    return { members: selectableDevelopers(directory, sections), sections, threads: conversations };
   }
   const boardThread = boardThreadPath.exec(path);
   if (req.method === "GET" && boardThread)
@@ -255,23 +253,36 @@ export async function conversationApi(req, path, { body, field, Problem }) {
   const [, id, action] = match;
   if (req.method === "GET" && !action)
     return threadDetail(directory, id, Problem, member.id);
-  if (req.method !== "POST" || !action) throw new Problem(404, "Operazione non trovata.");
+  const deleting = req.method === "DELETE" && !action;
+  if (!deleting && (req.method !== "POST" || !action)) throw new Problem(404, "Operazione non trovata.");
   const data = await body(req);
+  if (deleting && data.confirm !== true) throw new Problem(400, "Conferma l’eliminazione del thread.");
   return transaction(async (client) => {
     const { rows: [thread] } = await client.query(
       `SELECT id FROM conversation_threads
        WHERE id=$1 AND (sender_id=$2 OR recipient_id=$2) FOR UPDATE`, [id, member.id],
     );
     if (!thread) throw new Problem(404, "Conversazione non trovata.");
+    if (deleting) {
+      const lastMessageId = messageId(data.last_message_id, Problem);
+      const { rows: [latest] } = await client.query(
+        "SELECT id FROM conversation_messages WHERE thread_id=$1 ORDER BY id DESC LIMIT 1", [id],
+      );
+      if (latest?.id !== lastMessageId)
+        throw new Problem(409, "Il thread è cambiato. Leggi gli ultimi messaggi prima di riprovare.");
+      await client.query("DELETE FROM conversation_reads WHERE thread_id=$1", [id]);
+      await client.query("DELETE FROM conversation_messages WHERE thread_id=$1", [id]);
+      await client.query("DELETE FROM conversation_threads WHERE id=$1", [id]);
+      return { id };
+    }
     if (action === "read") {
-      if (typeof data.through_id !== "string" || !/^[1-9][0-9]{0,18}$/.test(data.through_id) || BigInt(data.through_id) > 9223372036854775807n)
-        throw new Problem(400, "ID dell’ultimo messaggio non valido.");
+      const throughId = messageId(data.through_id, Problem);
       const { rowCount } = await client.query(
         `INSERT INTO conversation_reads(thread_id,member_id,through_id)
          SELECT thread_id,$2,id FROM conversation_messages WHERE thread_id=$1 AND id=$3
          ON CONFLICT(thread_id,member_id) DO UPDATE
          SET through_id=GREATEST(conversation_reads.through_id,EXCLUDED.through_id)`,
-        [id, member.id, data.through_id],
+        [id, member.id, throughId],
       );
       if (!rowCount) throw new Problem(400, "Il messaggio non appartiene alla conversazione.");
       return { ok: true };

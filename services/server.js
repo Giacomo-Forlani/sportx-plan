@@ -1,8 +1,8 @@
 import http from "node:http";
 import { readFile } from "node:fs/promises";
-import { pool, initialize } from "./db.js";
+import { pool, initialize, transaction } from "./db.js";
 import { handleMcp } from "./mcp.js";
-import { conversationApi, initializeConversationTeam } from "./conversations.js";
+import { conversationApi, conversationTeam, initializeConversationTeam } from "./conversations.js";
 import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
 const statuses = [
@@ -78,8 +78,10 @@ async function snapshot() {
     const document = await c.query(
       "SELECT markdown,revision FROM document WHERE id=1",
     );
+    const developers = await conversationTeam(c);
     await c.query("COMMIT");
     return {
+      developers,
       sections: sections.rows,
       tasks: tasks.rows,
       decisions: decisions.rows,
@@ -135,7 +137,7 @@ async function api(req, path) {
         [section[1]],
       );
       if (inUse.rowCount)
-        throw new Problem(409, "La sezione contiene attività: eliminale prima di cancellare la sezione.");
+        throw new Problem(409, "La sezione contiene attività. Spostale o eliminale prima di cancellare la sezione.");
       // Reserve the numbering even if this section code is recreated later.
       await c.query(
         "INSERT INTO deleted_section_counters(code,next_number) SELECT code,next_number FROM sections WHERE id=$1 ON CONFLICT(code) DO UPDATE SET next_number=GREATEST(deleted_section_counters.next_number,EXCLUDED.next_number)",
@@ -185,12 +187,37 @@ async function api(req, path) {
   const task = path.match(/^\/tasks\/([A-Z0-9-]+)$/);
   if (task && req.method === "PATCH") {
     const b = await body(req);
-    return changed(
-      await pool.query(
-        "UPDATE tasks SET title=$1,description=$2,status=$3,owner=$4,priority=$5,revision=revision+1 WHERE id=$6 AND revision=$7 RETURNING *",
-        [...taskFields(b), task[1], revision(b)],
-      ),
-    );
+    const values = taskFields(b);
+    const expected = revision(b);
+    let targetSection;
+    if (b.section_id !== undefined) {
+      const value = b.section_id;
+      if ((typeof value !== "string" && !Number.isSafeInteger(value)) ||
+        !/^[0-9]{1,19}$/.test(String(value)) || BigInt(value) < 1n || BigInt(value) > 9223372036854775807n)
+        throw new Problem(400, "Seleziona una sezione.");
+      targetSection = String(BigInt(value));
+    }
+    return transaction(async (client) => {
+      const current = await changed(await client.query(
+        "SELECT section_id FROM tasks WHERE id=$1 AND revision=$2 FOR UPDATE",
+        [task[1], expected],
+      ));
+      const destination = targetSection ?? current.section_id;
+      if (destination !== current.section_id) {
+        const ids = [current.section_id, destination];
+        const sections = await client.query(
+          "SELECT id FROM sections WHERE id=ANY($1::bigint[]) ORDER BY id FOR UPDATE", [ids],
+        );
+        if (sections.rowCount !== 2) throw new Problem(400, "Sezione di destinazione inesistente.");
+        await client.query("UPDATE sections SET revision=revision+1 WHERE id=ANY($1::bigint[])", [ids]);
+      }
+      const { rows: [updated] } = await client.query(
+        `UPDATE tasks SET title=$1,description=$2,status=$3,owner=$4,priority=$5,
+          section_id=$6,revision=revision+1 WHERE id=$7 RETURNING *`,
+        [...values, destination, task[1]],
+      );
+      return updated;
+    });
   }
   if (task && req.method === "DELETE") {
     const b = await body(req);

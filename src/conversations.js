@@ -5,7 +5,7 @@
   const threadUrl = (id) => "#conversazioni/" + id;
   const drafts = new Map();
   let sender = "";
-  let board, thread, activeId, visible;
+  let board, thread, activeId, visible, deleteTarget;
   let generation = 0;
   let loading = false;
   let writing = false;
@@ -303,6 +303,29 @@
       remember(author);
       status("Messaggi segnati come letti.");
     });
+  };
+  $("conversation-delete").onclick = () => {
+    if (!thread || writing) return;
+    deleteTarget = { id: thread.id, lastMessageId: thread.messages.at(-1).id };
+    const form = $("conversation-delete-form");
+    form.querySelector(".form-error").textContent = "";
+    $("conversation-delete-warning").textContent =
+      "Eliminare definitivamente «" + thread.subject + "» e tutti i suoi messaggi?";
+    setOptions($("conversation-delete-member"), thread.participants, "Scegli un partecipante",
+      $("conversation-reply-sender").value || sender);
+    $("conversation-delete-dialog").showModal();
+  };
+  $("conversation-delete-form").onsubmit = (event) => {
+    event.preventDefault();
+    const { id, lastMessageId } = deleteTarget;
+    const author = $("conversation-delete-member").value;
+    void submit(event.submitter, () => api("/" + id, "DELETE",
+      { last_message_id: lastMessageId, confirm: true }, author), () => {
+      drafts.delete(id);
+      $("conversation-delete-dialog").close();
+      if (activeId === id) location.hash = "conversazioni";
+      status("Thread eliminato.");
+    }, event.currentTarget.querySelector(".form-error"));
   };
   $("conversation-link").onclick = async () => {
     try {

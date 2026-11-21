@@ -221,6 +221,32 @@ test("simultaneous task creation and section deletion cannot orphan tasks", asyn
   }
 });
 
+test("moving a task preserves the ID and updates both sections atomically", async () => {
+  const source = await request("/sections", "POST", { code: "MOVEFROM" });
+  const target = await request("/sections", "POST", { code: "MOVETO" });
+  const original = await request("/tasks", "POST", {
+    ...input(source.id), owner: "Responsabile storico",
+  });
+  const path = "/tasks/" + original.id;
+  const stateBefore = await request("/state");
+  await request(path, "PATCH", { ...original, section_id: "9223372036854775808" }, 400);
+  await request(path, "PATCH", { ...original, section_id: "900000" }, 400);
+  assert.deepEqual(await request("/state"), stateBefore);
+  const moved = await request(path, "PATCH", { ...original, section_id: target.id });
+  assert.equal(moved.id, original.id);
+  assert.equal(moved.section_id, target.id);
+  assert.equal(moved.owner, original.owner);
+  assert.equal(moved.revision, original.revision + 1);
+  await request(path, "PATCH", { ...original, section_id: source.id }, 409);
+  const stateAfter = await request("/state");
+  for (const id of [source.id, target.id]) {
+    assert.equal(stateAfter.sections.find((section) => section.id === id).revision,
+      stateBefore.sections.find((section) => section.id === id).revision + 1);
+  }
+  const next = await request("/tasks", "POST", input(target.id));
+  assert.equal(next.id, "MOVETO-01");
+});
+
 test("migration removes legacy section name without losing existing data", async () => {
   const before = await request("/state");
   const counters = await pool.query(
@@ -311,9 +337,9 @@ test("conversations share REST and MCP profiles and preserve legacy messages", a
     "Content-Type": "application/json",
     ...(user ? { "X-SportX-Developer": user } : {}),
   });
-  const inbox = async (user, path = "", data, expected = 200) => {
+  const inbox = async (user, path = "", data, expected = 200, method = data ? "POST" : "GET") => {
     const response = await fetch(base + "/conversations" + path, {
-      method: data ? "POST" : "GET",
+      method,
       headers: headers(user),
       body: data ? JSON.stringify(data) : undefined,
     });
@@ -442,6 +468,22 @@ test("conversations share REST and MCP profiles and preserve legacy messages", a
   const { result: missingResult } = await missingDeveloper.json();
   assert.equal(missingResult.isError, true);
   assert.match(missingResult.content[0].text, /developer/);
+  const deletion = { last_message_id: detail.messages.at(-1).id, confirm: true };
+  await inbox("marta", path, deletion, 404, "DELETE");
+  await inbox("ada", path, { ...deletion, confirm: false }, 400, "DELETE");
+  await inbox("luca-bianchi", path + "/replies", { message: "Un messaggio arrivato nel frattempo." });
+  await inbox("ada", path, deletion, 409, "DELETE");
+  const latest = await inbox("ada", path);
+  const deleted = await mcp("ada", "delete_conversation", {
+    thread_id: sent.id, last_message_id: latest.messages.at(-1).id, confirm: true,
+  });
+  assert.deepEqual(deleted, { id: sent.id });
+  await inbox(null, "/board" + path, undefined, 404);
+  assert.ok(!(await inbox(null, "/board")).threads.some(({ id }) => id === sent.id));
+  for (const table of ["conversation_messages", "conversation_reads"]) {
+    const { rowCount } = await pool.query("SELECT 1 FROM " + table + " WHERE thread_id=$1", [sent.id]);
+    assert.equal(rowCount, 0);
+  }
 });
 
 test("configured teammates can exchange messages before registration and keep their thread", async (t) => {
@@ -455,6 +497,7 @@ test("configured teammates can exchange messages before registration and keep th
   await Promise.all([initializeConversationTeam(), initializeConversationTeam()]);
   const board = await request("/conversations/board");
   assert.deepEqual(board.members.map(({ id }) => id), ["ada", "luca-bianchi", "lea"]);
+  assert.deepEqual((await request("/state")).developers, board.members);
   const replyAs = (developer, path, data) => fetch(base + "/conversations" + path, {
     method: data ? "POST" : "GET",
     headers: { "Content-Type": "application/json", "X-SportX-Developer": developer },

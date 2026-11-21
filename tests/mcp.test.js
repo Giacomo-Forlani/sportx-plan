@@ -87,7 +87,7 @@ test("legacy initialize and complete tools catalogue", async () => {
   assert.equal(hello.status, 200);
   assert.equal(hello.data.result.protocolVersion, "2025-11-25");
   const list = await send("tools/list");
-  assert.equal(list.data.result.tools.length, 21);
+  assert.equal(list.data.result.tools.length, 22);
   const names = list.data.result.tools.map((x) => x.name);
   assert.ok(names.includes("sportx_update_document"));
   assert.ok(names.includes("sportx_register_developer"));
@@ -100,6 +100,12 @@ test("legacy initialize and complete tools catalogue", async () => {
   assert.ok(names.includes("sportx_delete_task"));
   assert.ok(names.includes("sportx_delete_section"));
   assert.ok(names.includes("sportx_delete_decision"));
+  const move = list.data.result.tools.find(({ name }) => name === "sportx_update_task");
+  assert.equal(move.inputSchema.properties.section_id.type, "integer");
+  assert.ok(!move.inputSchema.required.includes("section_id"));
+  const deleteThread = list.data.result.tools.find(({ name }) => name === "sportx_delete_conversation");
+  assert.ok(deleteThread.annotations.destructiveHint);
+  assert.deepEqual(deleteThread.inputSchema.required, ["developer", "thread_id", "last_message_id", "confirm"]);
 });
 test("conversation identity is selected per tool call, never taken from client headers", async () => {
   const directory = await send("tools/call", { name: "sportx_list_developers", arguments: {} });
@@ -122,7 +128,7 @@ test("modern discovery and list use required protocol metadata", async () => {
   assert.equal(discover.data.result.resultType, "complete");
   assert.equal(discover.data.result._meta["io.modelcontextprotocol/serverInfo"].name, "sportx-plan");
   const list = await send("tools/list", {}, { modern: true });
-  assert.equal(list.data.result.tools.length, 21);
+  assert.equal(list.data.result.tools.length, 22);
   const invalid = await send("tools/list", {}, { modern: true, headers: { "Mcp-Method": "tools/call" } });
   assert.equal(invalid.status, 400);
 });

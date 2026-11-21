@@ -1494,6 +1494,13 @@ button:disabled {
 .conversation-reply h3 { margin: 0 0 12px; font-size: 1rem; }
 .conversation-addresses { align-items: end; margin-bottom: 12px; }
 .conversation-read { margin-bottom: 12px; }
+.button.conversation-delete {
+  color: var(--danger);
+  border-color: var(--danger-line);
+  background: var(--danger-bg);
+}
+.button.conversation-delete:hover:not(:disabled) { background: var(--surface-hover); }
+#conversation-delete-warning { margin: 0; overflow-wrap: anywhere; }
 .conversation-reply-actions { justify-content: end; margin-top: 10px; }
 
 @media (max-width: 880px) {

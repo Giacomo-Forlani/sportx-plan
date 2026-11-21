@@ -115,6 +115,9 @@ const puppeteer = require(
       "#editor-section",
       await a.$eval("#editor-section option:last-child", (e) => e.value),
     );
+    assert.deepEqual(await a.$$eval("#editor-owner option", (nodes) => nodes.map((node) => node.value)),
+      ["", "Ada", "Luca", "Marta"]);
+    await a.select("#editor-owner", "Marta");
     await a.type("#editor-title", "Attività condivisa");
     await a.type(
       "#editor-description",
@@ -130,6 +133,13 @@ const puppeteer = require(
     await b.click('[data-view="backlog"]');
     await b.waitForSelector('[data-id="TEST-01"]', { timeout: 12000 });
     await a.click('[data-id="TEST-01"] .task-open');
+    assert.equal(await a.$eval("#editor-section", (node) => node.disabled), false);
+    assert.equal(await a.$eval("#editor-owner", (node) => node.value), "Marta");
+    const target = await a.$eval("#editor-section option:first-child", (option) => ({
+      code: option.textContent, id: option.value,
+    }));
+    await a.select("#editor-section", target.id);
+    await a.select("#editor-owner", "Luca");
     await a.select("#editor-status", "In corso");
     await a.click("#task-form button[type=submit]");
     await a.waitForFunction(
@@ -143,6 +153,11 @@ const puppeteer = require(
           .textContent === "In corso",
       { timeout: 12000 },
     );
+    for (const page of [a, b]) {
+      assert.equal(await page.$eval('[data-id="TEST-01"] .owner', (node) => node.textContent), "Luca");
+      assert.equal(await page.$eval('[data-id="TEST-01"]',
+        (node) => node.closest(".backlog-section").querySelector("h2").textContent), target.code);
+    }
     await a.click('[data-id="TEST-01"] .danger');
     await a.waitForFunction(
       () => !document.querySelector('[data-id="TEST-01"]'),
@@ -361,6 +376,16 @@ const puppeteer = require(
     await a.waitForFunction(() => document.querySelector("#conversation-messages").textContent.includes("entrambi i campi"));
     const threadHash = await a.evaluate(() => location.hash);
     assert.match(threadHash, /^#conversazioni\//);
+    await a.click("#conversation-delete");
+    await a.waitForSelector("#conversation-delete-dialog[open]");
+    await a.click("#conversation-delete-form [data-close]");
+    assert.equal(await a.$eval("#conversation-subject", (node) => node.textContent), "Evento PaymentVerified");
+    await a.click("#conversation-delete");
+    await a.select("#conversation-delete-member", "ada");
+    await a.click("#conversation-delete-form button[type=submit]");
+    await a.waitForFunction(() => !document.querySelector(".conversation-item"));
+    await b.click("#refresh");
+    await b.waitForFunction(() => !document.querySelector(".conversation-item"));
     await a.setViewport({ width: 375, height: 812 });
     assert.ok(await a.evaluate(() => document.body.scrollWidth <= innerWidth + 2), "Mobile conversation overflow");
     await a.setViewport({ width: 375, height: 812 });

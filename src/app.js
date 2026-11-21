@@ -294,7 +294,7 @@
       removeSection.disabled = !emptySection;
       removeSection.title = emptySection
         ? "Elimina la sezione vuota " + s.code
-        : "Elimina prima tutte le attività della sezione.";
+        : "Sposta o elimina prima tutte le attività della sezione.";
       removeSection.onclick = () => {
         if (confirm("Eliminare definitivamente la sezione vuota " + s.code + "?"))
           save(() => api("/sections/" + s.id, "DELETE", { revision: s.revision }));
@@ -344,7 +344,12 @@
     $("editor-section").replaceChildren(
       ...state.sections.map((s) => new Option(s.code, s.id)),
     );
-    $("editor-section").disabled = !!task;
+    const owners = new Set((state.developers ?? []).map(({ name }) => name));
+    if (task?.owner) owners.add(task.owner);
+    $("editor-owner").replaceChildren(
+      new Option("Non assegnato", ""),
+      ...Array.from(owners, (name) => new Option(name, name)),
+    );
     if (task) {
       $("editor-section").value = task.section_id;
       $("editor-title").value = task.title;

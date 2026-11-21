@@ -35,6 +35,7 @@ const props = {
   message: str(20000),
   unread_only: { type: "boolean" },
   through_id: str(19),
+  last_message_id: str(19),
   confirm: { type: "boolean", const: true },
 };
 function tool(name, description, fields = [], required = [], write = false, destructive = false) {
@@ -62,7 +63,7 @@ export const mcpTools = [
   tool("delete_section", "Elimina definitivamente una sezione vuota: se contiene attività, l’operazione viene rifiutata. Richiede revisione e conferma.", ["section_id", "revision", "confirm"], ["section_id", "revision", "confirm"], true, true),
   tool("list_tasks", "Elenca le attività, con filtro facoltativo per sezione e stato.", ["section_id", "status"]),
   tool("create_task", "Crea un'attività nella sezione indicata; l'ID è assegnato dal server.", ["section_id", "title", "description", "owner", "status", "priority"], ["section_id", "title"], true),
-  tool("update_task", "Aggiorna un'attività con revisione ottimistica; richiede tutti i campi modificabili.", ["id", "revision", "title", "description", "owner", "status", "priority"], ["id", "revision", "title", "description", "owner", "status", "priority"], true),
+  tool("update_task", "Aggiorna un'attività con revisione ottimistica. Passa section_id per spostarla senza cambiare ID.", ["id", "revision", "title", "description", "owner", "status", "priority", "section_id"], ["id", "revision", "title", "description", "owner", "status", "priority"], true),
   tool("delete_task", "Elimina un'attività solo dopo conferma esplicita e verifica della revisione.", ["id", "revision", "confirm"], ["id", "revision", "confirm"], true, true),
   tool("list_decisions", "Elenca decisioni e domande, con filtro facoltativo per risposta presente.", ["answered"]),
   tool("create_decision", "Crea una decisione (domanda e risposta facoltativa).", ["question", "answer"], ["question"], true),
@@ -80,6 +81,7 @@ const inboxTools = [
   tool("read_conversation", "Leggi i messaggi della conversazione per developer.", ["developer", "thread_id"], ["developer", "thread_id"]),
   tool("reply_conversation", "Rispondi a nome di developer nella conversazione esistente.", ["developer", "thread_id", "message"], ["developer", "thread_id", "message"], true),
   tool("mark_conversation_read", "Segna come letti per developer i messaggi fino all'ID effettivamente letto, dopo averli riportati o presi in carico.", ["developer", "thread_id", "through_id"], ["developer", "thread_id", "through_id"], true),
+  tool("delete_conversation", "Elimina il thread come partecipante dopo conferma esplicita. Leggi il thread e passa l’ID corrente dell’ultimo messaggio: i nuovi messaggi bloccano l’eliminazione.", ["developer", "thread_id", "last_message_id", "confirm"], ["developer", "thread_id", "last_message_id", "confirm"], true, true),
 ];
 const inboxInstructions = "Quando usi le conversazioni SportX, se non conosci già il nome dello sviluppatore in questa chat, chiediglielo direttamente prima di leggere o inviare messaggi; non indovinarlo. Poi usa sportx_list_developers per trovare il suo ID; se il profilo non esiste, registralo con sportx_register_developer usando il nome comunicato. Passa quell'ID nel parametro developer di OGNI tool Conversazioni per tutta la chat. Non richiedere né memorizzare SPORTX_DEVELOPER, header di identità, impostazioni locali o variabili persistenti. Dopo l'identificazione controlla i messaggi non letti con sportx_list_conversations. Per concordare un contratto, scambia messaggi e scrivi l’accordo raggiunto nello stesso thread. Solo lo sviluppatore apre una PR, quando la sua implementazione è pronta.";
 const instructions = "Usa i tool SportX per gestire dati condivisi. Prima di modificare una voce leggi la revisione corrente.";
@@ -229,6 +231,9 @@ async function runTool(name, args, callApi) {
       return call("POST", "/conversations/" + conversationId(args.thread_id) + "/replies", { message: args.message });
     case "sportx_mark_conversation_read":
       return call("POST", "/conversations/" + conversationId(args.thread_id) + "/read", { through_id: args.through_id });
+    case "sportx_delete_conversation":
+      return call("DELETE", "/conversations/" + conversationId(args.thread_id),
+        { last_message_id: args.last_message_id, confirm: args.confirm });
     default: throw new ToolInputError("Strumento sconosciuto.");
   }
 }

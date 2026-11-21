@@ -7,7 +7,7 @@ const token = "mcp-isolated-test-secret-" + "x".repeat(40);
 process.env.SPORTX_MCP_TOKEN = token;
 const calls = [];
 const state = {
-  sections: [{ id: 1, code: "ARCH" }],
+  sections: [{ id: 1, code: "ARCH", revision: 2 }],
   tasks: [{ id: "ARCH-01", section_id: 1, title: "Schema", description: "", owner: "", status: "Da fare", priority: "P1", revision: 2 }],
   decisions: [{ id: 3, question: "Conferma?", answer: "", revision: 1 }],
   document: { markdown: "# Piano", revision: 4 },
@@ -21,7 +21,8 @@ async function api(req, path) {
   }
   calls.push({ method: req.method, path, input });
   if (req.method === "GET" && path === "/state") return state;
-  if (path === "/sections" && req.method === "POST") return { id: 2, code: input.code };
+  if (path === "/sections" && req.method === "POST") return { id: 2, code: input.code, revision: 1 };
+  if (path === "/sections/1" && req.method === "DELETE") return { id: 1, code: "ARCH" };
   if (path === "/tasks" && req.method === "POST") return { id: "ARCH-02", ...input };
   if (path === "/tasks/ARCH-01" && req.method === "PATCH") {
     const e = new Error("Revisione non più valida."); e.status = 409; throw e;
@@ -29,6 +30,7 @@ async function api(req, path) {
   if (path === "/tasks/ARCH-01" && req.method === "DELETE") return { id: "ARCH-01" };
   if (path === "/decisions" && req.method === "POST") return { id: 4, ...input };
   if (path === "/decisions/3" && req.method === "PATCH") return { id: 3, ...input };
+  if (path === "/decisions/3" && req.method === "DELETE") return { id: 3, code: "DEC-03" };
   if (path === "/document" && req.method === "PUT") return input;
   throw new Error("Unexpected mocked API path: " + path);
 }
@@ -79,10 +81,12 @@ test("legacy initialize and complete tools catalogue", async () => {
   assert.equal(hello.status, 200);
   assert.equal(hello.data.result.protocolVersion, "2025-11-25");
   const list = await send("tools/list");
-  assert.equal(list.data.result.tools.length, 12);
+  assert.equal(list.data.result.tools.length, 14);
   const names = list.data.result.tools.map((x) => x.name);
   assert.ok(names.includes("sportx_update_document"));
   assert.ok(names.includes("sportx_delete_task"));
+  assert.ok(names.includes("sportx_delete_section"));
+  assert.ok(names.includes("sportx_delete_decision"));
 });
 test("modern discovery and list use required protocol metadata", async () => {
   const discover = await send("server/discover", {}, { modern: true });
@@ -91,7 +95,7 @@ test("modern discovery and list use required protocol metadata", async () => {
   assert.equal(discover.data.result.resultType, "complete");
   assert.equal(discover.data.result._meta["io.modelcontextprotocol/serverInfo"].name, "sportx-plan");
   const list = await send("tools/list", {}, { modern: true });
-  assert.equal(list.data.result.tools.length, 12);
+  assert.equal(list.data.result.tools.length, 14);
   const invalid = await send("tools/list", {}, { modern: true, headers: { "Mcp-Method": "tools/call" } });
   assert.equal(invalid.status, 400);
 });
@@ -110,6 +114,18 @@ test("read filters, writes, revisions and explicit confirmation", async () => {
   assert.equal(calls.filter((x) => x.method === "DELETE").length, 0);
   const removed = await send("tools/call", { name: "sportx_delete_task", arguments: { id: "ARCH-01", revision: 2, confirm: true } });
   assert.equal(removed.data.result.structuredContent.id, "ARCH-01");
+  const sectionsBefore = calls.filter((x) => x.method === "DELETE" && x.path.startsWith("/sections/")).length;
+  const refuseSection = await send("tools/call", { name: "sportx_delete_section", arguments: { section_id: 1, revision: 2 } });
+  assert.equal(refuseSection.data.result.isError, true);
+  assert.equal(calls.filter((x) => x.method === "DELETE" && x.path.startsWith("/sections/")).length, sectionsBefore);
+  const deletedSection = await send("tools/call", { name: "sportx_delete_section", arguments: { section_id: 1, revision: 2, confirm: true } });
+  assert.equal(deletedSection.data.result.structuredContent.code, "ARCH");
+  assert.deepEqual(calls.at(-1), { method: "DELETE", path: "/sections/1", input: { revision: 2 } });
+  const refuseDecision = await send("tools/call", { name: "sportx_delete_decision", arguments: { decision_id: 3, revision: 1, confirm: false } });
+  assert.equal(refuseDecision.data.result.isError, true);
+  const deletedDecision = await send("tools/call", { name: "sportx_delete_decision", arguments: { decision_id: 3, revision: 1, confirm: true } });
+  assert.equal(deletedDecision.data.result.structuredContent.id, 3);
+  assert.deepEqual(calls.at(-1), { method: "DELETE", path: "/decisions/3", input: { revision: 1 } });
   const conflicted = await send("tools/call", {
     name: "sportx_update_task",
     arguments: { id: "ARCH-01", revision: 2, title: "Schema", description: "", owner: "", status: "Da fare", priority: "P1" },

@@ -13,6 +13,7 @@ const str = (maxLength) => ({ type: "string", maxLength });
 const pos = { type: "integer", minimum: 1 };
 const props = {
   section_id: pos,
+  decision_id: pos,
   id: str(80),
   revision: pos,
   code: str(16),
@@ -49,6 +50,7 @@ export const mcpTools = [
   tool("get_state", "Leggi lo stato completo: sezioni, attività, decisioni e documento."),
   tool("list_sections", "Elenca le sezioni del backlog."),
   tool("create_section", "Crea una sezione con codice univoco.", ["code"], ["code"], true),
+  tool("delete_section", "Elimina definitivamente una sezione vuota: se contiene attività, l’operazione viene rifiutata. Richiede revisione e conferma.", ["section_id", "revision", "confirm"], ["section_id", "revision", "confirm"], true, true),
   tool("list_tasks", "Elenca le attività, con filtro facoltativo per sezione e stato.", ["section_id", "status"]),
   tool("create_task", "Crea un'attività nella sezione indicata; l'ID è assegnato dal server.", ["section_id", "title", "description", "owner", "status", "priority"], ["section_id", "title"], true),
   tool("update_task", "Aggiorna un'attività con revisione ottimistica; richiede tutti i campi modificabili.", ["id", "revision", "title", "description", "owner", "status", "priority"], ["id", "revision", "title", "description", "owner", "status", "priority"], true),
@@ -56,6 +58,7 @@ export const mcpTools = [
   tool("list_decisions", "Elenca decisioni e domande, con filtro facoltativo per risposta presente.", ["answered"]),
   tool("create_decision", "Crea una decisione (domanda e risposta facoltativa).", ["question", "answer"], ["question"], true),
   tool("update_decision", "Modifica domanda e risposta conservando il controllo delle revisioni.", ["id", "revision", "question", "answer"], ["id", "revision", "question", "answer"], true),
+  tool("delete_decision", "Elimina definitivamente una decisione, solo con revisione corrente e conferma esplicita.", ["decision_id", "revision", "confirm"], ["decision_id", "revision", "confirm"], true, true),
   tool("read_document", "Leggi il documento Markdown condiviso e la sua revisione."),
   tool("update_document", "Sostituisci il documento Markdown solo se la revisione corrisponde.", ["revision", "markdown"], ["revision", "markdown"], true, true),
 ];
@@ -142,6 +145,9 @@ async function runTool(name, args, callApi) {
     case "sportx_get_state": return state();
     case "sportx_list_sections": return (await state()).sections;
     case "sportx_create_section": return call("POST", "/sections", { code: args.code });
+    case "sportx_delete_section":
+      requireRevision(args);
+      return call("DELETE", "/sections/" + args.section_id, { revision: args.revision });
     case "sportx_list_tasks": {
       let tasks = (await state()).tasks;
       if (args.section_id !== undefined) tasks = tasks.filter((x) => Number(x.section_id) === args.section_id);
@@ -169,6 +175,9 @@ async function runTool(name, args, callApi) {
     case "sportx_update_decision":
       identifier(args.id, "numeric"); requireRevision(args);
       return call("PATCH", "/decisions/" + args.id, args);
+    case "sportx_delete_decision":
+      requireRevision(args);
+      return call("DELETE", "/decisions/" + args.decision_id, { revision: args.revision });
     case "sportx_read_document": return (await state()).document;
     case "sportx_update_document":
       requireRevision(args);

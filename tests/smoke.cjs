@@ -81,6 +81,22 @@ const puppeteer = require(
       await a.$eval("#task-sections .backlog-section:last-child h2", (e) => e.textContent),
       "TEST",
     );
+    a.on("dialog", (d) => d.accept());
+    assert.equal(
+      await a.$eval('[aria-label="Elimina sezione TEST"]', (e) => e.disabled),
+      false,
+    );
+    await a.click('[aria-label="Elimina sezione TEST"]');
+    await a.waitForFunction(
+      () => ![...document.querySelectorAll(".backlog-section h2")].some((e) => e.textContent === "TEST"),
+    );
+    await a.click("#add-section");
+    await a.type("#section-code", "TEST");
+    await a.click("#section-form button[type=submit]");
+    await a.waitForSelector("#section-dialog:not([open])");
+    await a.waitForFunction(
+      () => [...document.querySelectorAll(".backlog-section h2")].some((e) => e.textContent === "TEST"),
+    );
     await a.click("#add-task");
     assert.equal(
       await a.$eval("#editor-section option:last-child", (e) => e.textContent),
@@ -97,6 +113,7 @@ const puppeteer = require(
     );
     await a.click("#task-form button[type=submit]");
     await a.waitForSelector('[data-id="TEST-01"]');
+    assert.equal(await a.$eval('[aria-label="Elimina sezione TEST"]', (e) => e.disabled), true);
     assert.doesNotMatch(
       await a.$eval('[data-id="TEST-01"]', (e) => e.textContent),
       /descrizione/,
@@ -117,7 +134,6 @@ const puppeteer = require(
           .textContent === "In corso",
       { timeout: 12000 },
     );
-    a.on("dialog", (d) => d.accept());
     await a.click('[data-id="TEST-01"] .danger');
     await a.waitForFunction(
       () => !document.querySelector('[data-id="TEST-01"]'),
@@ -150,6 +166,23 @@ const puppeteer = require(
     await a.click('[data-answered="false"] .decision button[type=submit]');
     await a.waitForSelector(
       '[data-answered="true"] .decision[data-id="' + decisionId + '"]',
+    );
+    await a.click('[data-answered="true"] .decision[data-id="' + decisionId + '"] .decision-remove');
+    await a.waitForFunction(
+      (id) => !document.querySelector('.decision[data-id="' + id + '"]'),
+      {},
+      decisionId,
+    );
+    await a.click('[data-view="backlog"]');
+    assert.equal(await a.$eval('[aria-label="Elimina sezione TEST"]', (e) => e.disabled), true);
+    await a.click('[data-id="TEST-02"] .danger');
+    await a.waitForFunction(() => !document.querySelector('[data-id="TEST-02"]'));
+    await a.waitForFunction(
+      () => !document.querySelector('[aria-label="Elimina sezione TEST"]').disabled,
+    );
+    await a.click('[aria-label="Elimina sezione TEST"]');
+    await a.waitForFunction(
+      () => ![...document.querySelectorAll(".backlog-section h2")].some((e) => e.textContent === "TEST"),
     );
     await a.click('[data-view="documento"]');
     await a.$eval("#document-text", (e) => {

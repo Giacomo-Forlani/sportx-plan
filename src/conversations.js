@@ -1,12 +1,12 @@
 "use strict";
 (() => {
   const $ = (id) => document.getElementById(id);
-  const storageKey = "sportx.conversations.token";
+  const storageKey = "sportx.conversations.developer";
   const date = new Intl.DateTimeFormat("it-IT", { dateStyle: "medium", timeStyle: "short" });
   const threadUrl = (id) => "#conversazioni/" + id;
   const drafts = new Map();
-  let token = "";
-  try { token = sessionStorage.getItem(storageKey) ?? ""; } catch { /* Session storage may be disabled. */ }
+  let developer = "";
+  try { developer = localStorage.getItem(storageKey) ?? ""; } catch { /* Local storage may be disabled. */ }
   let inbox, thread, activeId, visible;
   let generation = 0;
   let loading = false;
@@ -27,12 +27,14 @@
   }
 
   async function api(path = "", method = "GET", data) {
-    const headers = { Authorization: "Bearer " + token };
+    const headers = developer ? { "X-SportX-Developer": developer } : {};
     if (data) headers["Content-Type"] = "application/json";
     const response = await fetch("./api/conversations" + path, {
       method, headers, body: data ? JSON.stringify(data) : undefined,
     });
-    const result = await response.json();
+    let result;
+    try { result = await response.json(); }
+    catch { throw new Error("Il servizio non è raggiungibile. Riprova tra poco."); }
     if (!response.ok) {
       const error = new Error(result.error);
       error.status = response.status;
@@ -149,15 +151,15 @@
     }
   }
 
-  function clearSession() {
+  function clearDeveloper() {
     generation++;
-    token = "";
+    developer = "";
     inbox = undefined;
     thread = undefined;
     drafts.clear();
     renderedList = "";
-    try { sessionStorage.removeItem(storageKey); } catch { /* In-memory session was cleared. */ }
-    $("conversation-token").value = "";
+    try { localStorage.removeItem(storageKey); } catch { /* The in-memory identity was cleared. */ }
+    $("conversation-developer").value = "";
     $("conversation-reply").reset();
     $("conversation-dialog").close();
     $("conversation-messages").replaceChildren();
@@ -169,13 +171,15 @@
   }
 
   async function refresh() {
-    if (!token || loading || writing) return;
+    if (!developer || loading || writing) return;
     loading = true;
     const request = generation;
     const id = visible ? activeId : undefined;
+    let inboxLoaded = false;
     try {
       const updated = await api();
       if (request !== generation) return;
+      inboxLoaded = true;
       inbox = updated;
       renderInbox();
       if (id) {
@@ -186,14 +190,14 @@
       }
     } catch (error) {
       if (request !== generation) return;
-      if (error.status === 401) clearSession();
-      if (error.status === 404 && id === activeId) {
+      if (!inboxLoaded && [400, 404].includes(error.status)) clearDeveloper();
+      if (inboxLoaded && error.status === 404 && id === activeId) {
         thread = undefined;
         renderThread("Conversazione non disponibile.");
       } else status(error.message, true);
     } finally {
       loading = false;
-      if (request !== generation && token) void refresh();
+      if (request !== generation && developer) void refresh();
     }
   }
 
@@ -229,8 +233,7 @@
       generation++;
       done(result);
     } catch (error) {
-      if (error.status === 401) clearSession();
-      if (errorTarget && error.status !== 401) errorTarget.textContent = error.message;
+      if (errorTarget) errorTarget.textContent = error.message;
       else status(error.message, true);
     } finally {
       writing = false;
@@ -239,20 +242,19 @@
     }
   }
 
-  $("conversation-login").onsubmit = async (event) => {
+  $("conversation-login").onsubmit = (event) => {
     event.preventDefault();
     if (loading || writing) return;
-    token = $("conversation-token").value.trim();
-    status("");
-    await refresh();
-    if (inbox) {
-      try { sessionStorage.setItem(storageKey, token); } catch { /* The current tab remains signed in. */ }
-      $("conversation-token").value = "";
-    }
+    const name = $("conversation-developer").value;
+    void submit(event.submitter, () => api("/developers", "POST", { name }), ({ id }) => {
+      developer = id;
+      $("conversation-developer").value = "";
+      try { localStorage.setItem(storageKey, developer); } catch { /* The current tab remains connected. */ }
+    });
   };
   $("conversation-logout").onclick = () => {
     if (writing) return;
-    clearSession();
+    clearDeveloper();
     status("");
     location.hash = "conversazioni";
   };

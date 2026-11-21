@@ -26,6 +26,11 @@ CREATE TABLE IF NOT EXISTS decisions (
 CREATE TABLE IF NOT EXISTS document (
  id integer PRIMARY KEY CHECK(id=1), markdown text NOT NULL, revision integer NOT NULL DEFAULT 1
 );
+CREATE TABLE IF NOT EXISTS conversation_developers (
+ id text PRIMARY KEY,
+ name text NOT NULL,
+ name_key text NOT NULL UNIQUE
+);
 CREATE TABLE IF NOT EXISTS conversation_threads (
  id uuid PRIMARY KEY,
  sender_id text NOT NULL,

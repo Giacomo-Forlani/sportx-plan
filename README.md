@@ -2,7 +2,7 @@
 
 Spazio di lavoro del team: https://sportx.giacomoforlani.com/
 
-Frontend JavaScript senza framework, API Node.js e PostgreSQL persistente. Backlog, decisioni e documento sono condivisi. Per accedere alle conversazioni serve un token personale.
+Frontend JavaScript senza framework, API Node.js e PostgreSQL persistente. Il dominio SportX è protetto da Cloudflare Access. Backlog, decisioni e documento sono condivisi.
 
 ## Comportamento
 
@@ -17,18 +17,11 @@ La dashboard supporta automaticamente **tema chiaro e scuro**, senza preferenze 
 
 ## Conversazioni tra sviluppatori e agenti
 
-La pagina **Conversazioni** e i tool MCP mostrano la stessa casella personale. Ogni thread ha due partecipanti, messaggi in ordine cronologico, un riferimento facoltativo a un’attività, una decisione o un link, e uno stato di lettura per partecipante. Una domanda può essere letta e restare in attesa di risposta. Il link del thread è copiabile e richiede il token di uno dei partecipanti.
+La pagina **Conversazioni** e i tool MCP mostrano la stessa casella. Ogni thread ha due partecipanti, messaggi in ordine cronologico, un riferimento facoltativo a un’attività, una decisione o un link, e uno stato di lettura per partecipante. Una domanda può essere letta e restare in attesa di risposta.
 
-Per abilitare la casella, aggiungere `SPORTX_CONVERSATION_MEMBERS` all'ambiente dell'app, anche nella sezione **Environment** di Dokploy se usata. Inserire un oggetto JSON con un ID stabile per ogni sviluppatore, il nome visibile e un token personale distinto, generato ad esempio con `openssl rand -hex 32`. Conservare gli ID quando si cambia il nome o si ruota il token.
-
-```json
-{
-  "ada": {"name": "Ada Rossi", "token": "<token personale di Ada>"},
-  "luca": {"name": "Luca Bianchi", "token": "<token personale di Luca>"}
-}
-```
-
-Ciascuno usa il proprio token per la pagina **Conversazioni** e per l’header `Authorization: Bearer …` della connessione MCP. Il token condiviso `SPORTX_MCP_TOKEN` dà accesso ai tool di pianificazione già esistenti. Il token personale identifica il mittente e abilita anche i tool della casella.
+- Nella dashboard protetta da Cloudflare Access, inserisci nome e cognome per aprire la casella. Il browser ricorda l’identificativo su questo dispositivo. Usa **Cambia nome** per tornare alla scelta.
+- Via MCP tutti usano il token condiviso già previsto. Imposta `SPORTX_DEVELOPER` nell’ambiente che avvia l’agente (per esempio `nome-cognome`) e passalo nell’header `X-SportX-Developer`. Alla prima connessione registra il nome con `sportx_register_developer` se la casella non esiste. Se il nome era già stato registrato, il tool indica l’identificativo da riusare.
+- Conserva il nome e le credenziali nella configurazione locale dello sviluppatore, fuori da Git. Il server salva i nomi in PostgreSQL per trovare i destinatari. Il nome serve ad associare i messaggi alla casella; l’accesso resta a livello di team e il nome non verifica l’identità della persona.
 
 All’inizio di un’attività, al primo utilizzo di `sportx_plan`, l’agente chiama `sportx_list_conversations` con `unread_only: true`. Usa `sportx_read_conversation` per aprire un thread e `sportx_mark_conversation_read` per aggiornare la lettura fino all’ID effettivamente letto. Per inviare una domanda o un avviso, usa `sportx_send_message` con l’ID del destinatario, restituito dall'elenco. Le risposte usano `sportx_reply_conversation`.
 

@@ -12,14 +12,6 @@ const puppeteer = require(
   const database = await pool.query("SELECT current_database() AS name");
   assert.equal(database.rows[0].name, process.env.PGDATABASE, "Database di test inatteso");
   await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public");
-  const tokens = {
-    ada: "browser-ada-" + "a".repeat(40),
-    luca: "browser-luca-" + "l".repeat(40),
-  };
-  process.env.SPORTX_CONVERSATION_MEMBERS = JSON.stringify({
-    ada: { name: "Ada", token: tokens.ada },
-    luca: { name: "Luca", token: tokens.luca },
-  });
   const server = await start(0);
   const browser = await puppeteer.launch({
     executablePath:
@@ -302,14 +294,17 @@ const puppeteer = require(
       savedDocument.markdown,
     );
     // The inbox uses two independent browser identities and the same conversation.
-    for (const [page, token] of [[a, tokens.ada], [b, tokens.luca]]) {
+    for (const [page, name] of [[a, "Ada Rossi"], [b, "Luca Bianchi"]]) {
       await page.click('[data-view="conversazioni"]');
-      await page.type("#conversation-token", token);
+      await page.type("#conversation-developer", name);
       await page.click("#conversation-login button[type=submit]");
-      await page.waitForSelector("#conversation-new", { visible: true });
+      await page.waitForSelector("#conversation-workspace", { visible: true });
     }
+    await a.reload({ waitUntil: "networkidle0" });
+    await a.waitForFunction(() => document.querySelector("#conversation-account").textContent === "Casella di Ada Rossi");
+    await a.waitForSelector("#conversation-new", { visible: true });
     await a.click("#conversation-new");
-    await a.select("#conversation-recipient", "luca");
+    await a.select("#conversation-recipient", "luca-bianchi");
     await a.type("#conversation-new-subject", "Evento PaymentVerified");
     await a.type("#conversation-new-reference", "DEC-02");
     await a.type("#conversation-new-text", "Puoi usare membershipRequestId?");

@@ -1,45 +1,36 @@
-import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { pool } from "./db.js";
 
-const key = /^[a-z0-9][a-z0-9-]{0,63}$/;
+const developerId = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const threadPath = /^\/conversations\/([a-f0-9-]{36})(?:\/(replies|read|proposal|confirmation))?$/;
-const hash = (value) => createHash("sha256").update(value).digest();
-let directorySource;
-let directory = [];
 
-export function conversationMembers() {
-  const source = process.env.SPORTX_CONVERSATION_MEMBERS ?? "";
-  if (source === directorySource) return directory;
-  directorySource = source;
-  try {
-    const entries = JSON.parse(source || "{}");
-    if (!entries || typeof entries !== "object" || Array.isArray(entries)) throw new Error();
-    const tokens = new Set();
-    directory = Object.entries(entries).map(([id, member]) => {
-      if (!key.test(id) || typeof member?.name !== "string" || !member.name.trim() || member.name.length > 120 ||
-        typeof member.token !== "string" || !/^[!-~]{32,256}$/.test(member.token) || tokens.has(member.token) ||
-        member.token === process.env.SPORTX_MCP_TOKEN) throw new Error();
-      tokens.add(member.token);
-      return { id, name: member.name.trim(), tokenHash: hash(member.token) };
-    });
-  } catch {
-    directory = [];
-    console.error("Configurazione dei partecipanti alle conversazioni non valida.");
-  }
-  return directory;
+function slug(name) {
+  return name.normalize("NFKD").replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9]+/g, "-").slice(0, 64).replace(/^-|-$/g, "") ||
+    "dev-" + createHash("sha256").update(name).digest("hex").slice(0, 20);
 }
 
-export function conversationMember(authorization) {
-  if (typeof authorization !== "string" || !authorization.startsWith("Bearer ")) return null;
-  const supplied = hash(authorization.slice(7));
-  let match = null;
-  for (const member of conversationMembers()) {
-    if (timingSafeEqual(member.tokenHash, supplied)) match = member;
-  }
-  return match;
-}
+async function registerDeveloper(data, claimedId, { field, Problem }) {
+  const name = field(data, "name", 120).normalize("NFKC").replace(/\s+/gu, " ").trim();
+  if (!name || name.length > 120 || /\p{C}/u.test(name))
+    throw new Problem(400, "Nome sviluppatore non valido.");
+  const nameKey = name.toLowerCase();
+  const id = claimedId ?? slug(nameKey);
+  if (typeof id !== "string" || !developerId.test(id))
+    throw new Problem(400, "Identificativo sviluppatore non valido.");
 
-const profile = ({ id, name }) => ({ id, name });
+  const { rows: [inserted] } = await pool.query(
+    `INSERT INTO conversation_developers(id,name,name_key) VALUES($1,$2,$3)
+     ON CONFLICT DO NOTHING RETURNING id,name`, [id, name, nameKey],
+  );
+  if (inserted) return inserted;
+  const { rows: [existing] } = await pool.query(
+    "SELECT id,name FROM conversation_developers WHERE name_key=$1", [nameKey],
+  );
+  if (existing && (!claimedId || existing.id === claimedId)) return existing;
+  if (existing) throw new Problem(409, "Per questo nome imposta SPORTX_DEVELOPER=" + existing.id + ".");
+  throw new Problem(409, "Identificativo già assegnato. Usa un nome più specifico o un identificativo diverso.");
+}
 
 async function transaction(run, begin = "BEGIN") {
   const client = await pool.connect();
@@ -56,7 +47,7 @@ async function transaction(run, begin = "BEGIN") {
   }
 }
 
-async function threads(client, member, id = null) {
+async function threads(client, member, directory, id = null) {
   const { rows } = await client.query(
     `SELECT t.id,t.subject,t.reference,t.kind,t.agreement_version,t.updated_at,
       ARRAY[t.sender_id,t.recipient_id] AS member_ids,
@@ -77,7 +68,7 @@ async function threads(client, member, id = null) {
      ORDER BY t.updated_at DESC,t.id DESC`,
     [member.id, id],
   );
-  const byId = new Map(conversationMembers().map((person) => [person.id, profile(person)]));
+  const byId = new Map(directory.map((person) => [person.id, person]));
   return rows.map(({ member_ids, owes_reply, ...row }) => ({
     ...row,
     participants: member_ids.map((personId) => byId.get(personId) ?? { id: personId, name: personId }),
@@ -88,12 +79,19 @@ async function threads(client, member, id = null) {
 }
 
 export async function conversationApi(req, path, { body, field, Problem }) {
-  const member = conversationMember(req.headers?.authorization);
-  if (!conversationMembers().length) throw new Problem(503, "Conversazioni non ancora configurate.");
-  if (!member) throw new Problem(401, "Inserisci il tuo token personale SportX.");
+  const claimedId = req.headers?.["x-sportx-developer"];
+  if (req.method === "POST" && path === "/conversations/developers")
+    return registerDeveloper(await body(req), claimedId, { field, Problem });
+
+  if (typeof claimedId !== "string" || !developerId.test(claimedId))
+    throw new Problem(400, "Scegli il tuo nome nella dashboard o imposta SPORTX_DEVELOPER nell’ambiente dell’agente.");
+  const { rows: directory } = await pool.query("SELECT id,name FROM conversation_developers ORDER BY name,id");
+  const member = directory.find(({ id }) => id === claimedId);
+  if (!member)
+    throw new Problem(404, "Registra prima il tuo nome nella dashboard o con sportx_register_developer.");
 
   if (req.method === "GET" && path === "/conversations") {
-    return { me: profile(member), members: conversationMembers().map(profile), threads: await threads(pool, member) };
+    return { me: member, members: directory, threads: await threads(pool, member, directory) };
   }
   if (req.method === "POST" && path === "/conversations") {
     const data = await body(req);
@@ -103,7 +101,7 @@ export async function conversationApi(req, path, { body, field, Problem }) {
     const message = field(data, "message", 20000);
     const kind = data.kind ?? "question";
     if (!["question", "notice"].includes(kind)) throw new Problem(400, "Tipo di conversazione non valido.");
-    if (recipient === member.id || !conversationMembers().some(({ id }) => id === recipient))
+    if (recipient === member.id || !directory.some(({ id }) => id === recipient))
       throw new Problem(400, "Seleziona un altro sviluppatore dall’elenco.");
     const id = randomUUID();
     await transaction(async (client) => {
@@ -121,7 +119,7 @@ export async function conversationApi(req, path, { body, field, Problem }) {
   const [, id, action] = match;
   if (req.method === "GET" && !action) {
     return transaction(async (client) => {
-      const [thread] = await threads(client, member, id);
+      const [thread] = await threads(client, member, directory, id);
       if (!thread) throw new Problem(404, "Conversazione non trovata.");
       const { rows: messages } = await client.query(
         `SELECT id,author_id,body,kind,agreement_version,created_at FROM conversation_messages

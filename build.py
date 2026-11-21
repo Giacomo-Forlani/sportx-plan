@@ -8,7 +8,7 @@ parser.add_argument('--output', type=Path, default=Path('/workspace/Website/publ
 args = parser.parse_args()
 root = Path(__file__).resolve().parent
 args.output.mkdir(parents=True, exist_ok=True)
-for name in ('index.html', 'style.css', 'app.js', 'favicon.svg'):
+for name in ('index.html', 'style.css', 'app.js', 'conversations.js', 'favicon.svg'):
     shutil.copyfile(root / 'src' / name, args.output / name)
     (args.output / name).chmod(0o644)
 # Remove obsolete generated public files; the live document is served by the API.

@@ -12,6 +12,14 @@ const puppeteer = require(
   const database = await pool.query("SELECT current_database() AS name");
   assert.equal(database.rows[0].name, process.env.PGDATABASE, "Database di test inatteso");
   await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public");
+  const tokens = {
+    ada: "browser-ada-" + "a".repeat(40),
+    luca: "browser-luca-" + "l".repeat(40),
+  };
+  process.env.SPORTX_CONVERSATION_MEMBERS = JSON.stringify({
+    ada: { name: "Ada", token: tokens.ada },
+    luca: { name: "Luca", token: tokens.luca },
+  });
   const server = await start(0);
   const browser = await puppeteer.launch({
     executablePath:
@@ -293,8 +301,45 @@ const puppeteer = require(
       (await a.evaluate(async () => (await (await fetch("./api/state")).json()).document.markdown)),
       savedDocument.markdown,
     );
+    // The inbox uses two independent browser identities and the same conversation.
+    for (const [page, token] of [[a, tokens.ada], [b, tokens.luca]]) {
+      await page.click('[data-view="conversazioni"]');
+      await page.type("#conversation-token", token);
+      await page.click("#conversation-login button[type=submit]");
+      await page.waitForSelector("#conversation-new", { visible: true });
+    }
+    await a.click("#conversation-new");
+    await a.select("#conversation-recipient", "luca");
+    await a.type("#conversation-new-subject", "Evento PaymentVerified");
+    await a.type("#conversation-new-reference", "DEC-02");
+    await a.type("#conversation-new-text", "Puoi usare membershipRequestId?");
+    await a.click("#conversation-compose button[type=submit]");
+    await a.waitForSelector("#conversation-thread", { visible: true });
+    await b.click("#refresh");
+    await b.waitForSelector(".conversation-item .conversation-tag", { visible: true });
+    await b.click(".conversation-item");
+    await b.waitForSelector("#conversation-read", { visible: true });
+    await b.click("#conversation-read");
+    await b.waitForSelector("#conversation-read", { hidden: true });
+    await b.select("#conversation-filter", "waiting");
+    await b.waitForSelector(".conversation-item", { visible: true });
+    await b.type("#conversation-reply-text", "Servono membershipRequestId e paymentId.");
+    await b.select("#conversation-reply-kind", "proposal");
+    await b.click("#conversation-reply button[type=submit]");
+    await b.waitForSelector("#agreement-confirm", { visible: true });
+    await b.click("#agreement-confirm");
+    await b.waitForSelector("#agreement-confirm", { hidden: true });
+    await a.click("#refresh");
+    await a.waitForSelector("#agreement-confirm", { visible: true });
+    await a.click("#agreement-confirm");
+    await a.waitForFunction(() => document.querySelector("#agreement-title").textContent === "Accordo confermato · v1");
+    assert.ok((await a.$eval("#agreement-text", (node) => node.textContent)).includes("paymentId"));
+    const threadHash = await a.evaluate(() => location.hash);
+    assert.match(threadHash, /^#conversazioni\//);
     await a.setViewport({ width: 375, height: 812 });
-    for (const view of ["panoramica", "backlog", "decisioni", "documento"]) {
+    assert.ok(await a.evaluate(() => document.body.scrollWidth <= innerWidth + 2), "Mobile conversation overflow");
+    await a.setViewport({ width: 375, height: 812 });
+    for (const view of ["panoramica", "backlog", "decisioni", "conversazioni", "documento"]) {
       await a.evaluate((v) => (location.hash = v), view);
       await a.waitForFunction(
         (v) =>
@@ -311,7 +356,7 @@ const puppeteer = require(
     assert.deepEqual(errors, []);
     await a.screenshot({ path: "/tmp/sportx-plan-mobile.png", fullPage: true });
     console.log(
-      "OK: two browsers, shared edits, deletion and numbering, inline decisions, Markdown, mobile, no JavaScript errors.",
+      "OK: two browsers, shared edits, inline decisions, Markdown, conversations and agreements, mobile, no JavaScript errors.",
     );
   } finally {
     await browser.close();

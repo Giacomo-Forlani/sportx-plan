@@ -294,3 +294,83 @@ test("MCP endpoint uses the same persistent API state and validation", async () 
     else process.env.SPORTX_MCP_TOKEN = old;
   }
 });
+
+test("personal conversations share REST and MCP state and confirm only the current proposal", async (t) => {
+  const directory = Object.fromEntries(["ada", "luca", "marta"].map((id) => [
+    id, { name: id, token: "personal-test-token-" + id.padEnd(40, "x") },
+  ]));
+  const previous = process.env.SPORTX_CONVERSATION_MEMBERS;
+  process.env.SPORTX_CONVERSATION_MEMBERS = JSON.stringify(directory);
+  t.after(() => {
+    if (previous === undefined) delete process.env.SPORTX_CONVERSATION_MEMBERS;
+    else process.env.SPORTX_CONVERSATION_MEMBERS = previous;
+  });
+  const headers = (user) => ({
+    "Content-Type": "application/json",
+    ...(user ? { Authorization: "Bearer " + directory[user].token } : {}),
+  });
+  const inbox = async (user, path = "", data, expected = 200) => {
+    const response = await fetch(base + "/conversations" + path, {
+      method: data ? "POST" : "GET",
+      headers: headers(user),
+      body: data ? JSON.stringify(data) : undefined,
+    });
+    const value = await response.json();
+    assert.equal(response.status, expected, JSON.stringify(value));
+    return value;
+  };
+  const mcp = async (user, tool, args) => {
+    const response = await fetch(base.slice(0, -4) + "/mcp", {
+      method: "POST",
+      headers: headers(user),
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call",
+        params: { name: "sportx_" + tool, arguments: args } }),
+    });
+    assert.equal(response.status, 200);
+    const { result } = await response.json();
+    assert.ok(!result.isError, JSON.stringify(result));
+    return result.structuredContent;
+  };
+
+  await inbox(null, "", undefined, 401);
+  const sent = await mcp("ada", "send_message", {
+    recipient: "luca", subject: "Contratto pagamenti", message: "Serve l’ID della richiesta.",
+    reference: "DEC-02",
+  });
+  const path = "/" + sent.id;
+  assert.deepEqual((await inbox("marta")).threads, []);
+  await inbox("marta", path, undefined, 404);
+  await inbox("marta", path + "/replies", { message: "Risposta di un estraneo" }, 404);
+  const first = await inbox("luca", path);
+  assert.equal(first.messages[0].author_id, "ada");
+  assert.equal(first.unread, true);
+  assert.equal(first.waiting_for_you, true);
+  assert.equal(first.reference, "DEC-02");
+  assert.ok(!(await request("/state")).conversations);
+  await mcp("luca", "mark_conversation_read", { thread_id: sent.id, through_id: first.messages[0].id });
+  assert.deepEqual((await mcp("luca", "list_conversations", { unread_only: true })).threads, []);
+  assert.equal((await inbox("luca", path)).waiting_for_you, true);
+  await inbox("luca", path + "/replies", { message: "Sì, e anche l’ID pagamento." });
+  assert.equal((await inbox("ada", path)).unread, true);
+  assert.equal((await inbox("ada", path)).waiting_for_you, false);
+  assert.equal((await inbox("luca", path)).waiting_for_you, false);
+  const proposal = await mcp("ada", "propose_agreement", { thread_id: sent.id, message: "Versione 1", version: 0 });
+  assert.equal(proposal.version, 1);
+  await Promise.all([1, 2].map(() => inbox("ada", path + "/confirmation", { version: 1 })));
+  await mcp("luca", "confirm_agreement", { thread_id: sent.id, version: 1 });
+  let detail = await inbox("ada", path);
+  assert.deepEqual(detail.confirmed_by, ["ada", "luca"]);
+  assert.equal(detail.messages.filter((item) => item.kind === "confirmation").length, 2);
+  await inbox("luca", path + "/proposal", { message: "Versione 2", version: 1 });
+  await inbox("ada", path + "/proposal", { message: "Proposta concorrente", version: 1 }, 409);
+  await inbox("ada", path + "/confirmation", { version: 1 }, 409);
+  await inbox("ada", path + "/read", { through_id: first.messages[0].id });
+  detail = await mcp("ada", "read_conversation", { thread_id: sent.id });
+  assert.equal(detail.agreement_version, 2);
+  assert.deepEqual(detail.confirmed_by, []);
+  assert.equal(detail.messages.filter((item) => item.kind === "confirmation").length, 2);
+  assert.equal(detail.unread, true);
+  await inbox("ada", path + "/read", { through_id: detail.messages.at(-1).id });
+  await inbox("ada", path + "/read", { through_id: first.messages[0].id });
+  assert.equal((await inbox("ada", path)).unread, false);
+});

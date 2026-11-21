@@ -99,8 +99,9 @@
       documentSaving = false;
     }
   }
-  function view(name) {
-    if (!["panoramica", "backlog", "decisioni", "documento"].includes(name))
+  function view(route) {
+    let name = route.split("/")[0];
+    if (!["panoramica", "backlog", "decisioni", "conversazioni", "documento"].includes(name))
       name = "panoramica";
     if (name !== "documento" && documentDirty) void flushDocumentSave();
     document
@@ -113,6 +114,7 @@
     });
     $("breadcrumb").textContent = name.toUpperCase();
     if (name === "documento") setDocumentMode(true);
+    window.sportxConversations.navigate(name === "conversazioni", route.split("/")[1]);
   }
   async function updateDocumentPreview() {
     if (
@@ -169,6 +171,7 @@
   async function load({ force = false } = {}) {
     if (refreshing || mutating) return;
     refreshing = true;
+    void window.sportxConversations.refresh();
     try {
       state = await api("/state");
       $("preview-document").disabled = false;

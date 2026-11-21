@@ -32,6 +32,9 @@
           ><button class="nav-item" data-view="decisioni">
             <span class="nav-icon">◇</span>Decisioni
             <span class="nav-count" id="nav-decisions">—</span></button
+          ><button class="nav-item" data-view="conversazioni">
+            <span class="nav-icon" aria-hidden="true">✉</span>Conversazioni
+            <span class="nav-count hidden" id="nav-conversations"></span></button
           ><button class="nav-item" data-view="documento">
             <span class="nav-icon">≡</span>Documento
           </button>
@@ -187,6 +190,77 @@
             </p>
             <div id="decision-sections"></div>
           </section>
+          <section class="view hidden" id="view-conversazioni">
+            <div class="page-title">
+              <div>
+                <h1>Conversazioni</h1>
+                <p class="subtitle">Domande, avvisi e accordi tecnici del team.</p>
+              </div>
+              <button id="conversation-new" class="button primary hidden" type="button">Nuovo messaggio</button>
+            </div>
+            <p id="conversation-status" class="conversation-status" role="status"></p>
+            <form id="conversation-login" class="panel conversation-login">
+              <h2>Accedi alla tua casella</h2>
+              <label>Token personale SportX
+                <input id="conversation-token" type="password" required maxlength="256" autocomplete="off" spellcheck="false" />
+              </label>
+              <button class="button primary" type="submit">Accedi</button>
+            </form>
+            <div id="conversation-workspace" class="hidden">
+              <div class="conversation-toolbar">
+                <p id="conversation-account" class="muted"></p>
+                <button id="conversation-logout" class="text-button" type="button">Esci dalla casella</button>
+              </div>
+              <div class="conversation-layout">
+                <aside class="panel conversation-inbox" aria-label="Casella personale">
+                  <div class="panel-header"><h2>Casella personale</h2></div>
+                  <label class="conversation-filter">Mostra
+                    <select id="conversation-filter">
+                      <option value="all">Tutte le conversazioni</option>
+                      <option value="unread">Non lette</option>
+                      <option value="waiting">In attesa di te</option>
+                    </select>
+                  </label>
+                  <ul id="conversation-list" class="conversation-list"></ul>
+                </aside>
+                <article class="panel conversation-detail" aria-label="Dettaglio conversazione">
+                  <p id="conversation-empty" class="conversation-empty">Seleziona una conversazione.</p>
+                  <div id="conversation-thread" class="hidden">
+                    <header class="conversation-thread-header">
+                      <div>
+                        <h2 id="conversation-subject"></h2>
+                        <p id="conversation-participants" class="muted"></p>
+                        <p id="conversation-reference" class="conversation-reference"></p>
+                      </div>
+                      <div class="actions">
+                        <button type="button" id="conversation-link" class="button">Copia link</button>
+                        <button type="button" id="conversation-read" class="button">Segna come letta</button>
+                      </div>
+                    </header>
+                    <section id="conversation-agreement" class="conversation-agreement hidden" aria-labelledby="agreement-title">
+                      <h3 id="agreement-title"></h3>
+                      <p id="agreement-approvals" class="muted"></p>
+                      <p id="agreement-text" class="conversation-body"></p>
+                      <button id="agreement-confirm" class="button primary" type="button">Conferma versione</button>
+                    </section>
+                    <ol id="conversation-messages" class="conversation-messages" aria-label="Messaggi"></ol>
+                    <form id="conversation-reply" class="conversation-reply">
+                      <label>Risposta<textarea id="conversation-reply-text" rows="4" maxlength="20000" required></textarea></label>
+                      <div class="conversation-reply-actions">
+                        <label>Tipo di risposta
+                          <select id="conversation-reply-kind">
+                            <option value="reply">Messaggio</option>
+                            <option value="proposal">Proposta di contratto</option>
+                          </select>
+                        </label>
+                        <button class="button primary" type="submit">Invia</button>
+                      </div>
+                    </form>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </section>
           <section class="view hidden" id="view-documento">
             <div class="page-title">
               <div>
@@ -292,6 +366,25 @@
         </div>
       </form>
     </dialog>
+    <dialog id="conversation-dialog" class="editor">
+      <form id="conversation-compose">
+        <div class="editor-head">
+          <h2>Nuovo messaggio</h2>
+          <button type="button" class="close" data-close aria-label="Chiudi">×</button>
+        </div>
+        <label>Destinatario<select id="conversation-recipient" required></select></label>
+        <label>Oggetto<input id="conversation-new-subject" required maxlength="180" /></label>
+        <label>Tipo<select id="conversation-kind"><option value="question">Domanda</option><option value="notice">Avviso</option></select></label>
+        <label>Riferimento<input id="conversation-new-reference" maxlength="300" placeholder="ID attività, DEC o link" /></label>
+        <label>Messaggio<textarea id="conversation-new-text" required rows="5" maxlength="20000"></textarea></label>
+        <p class="form-error" role="alert"></p>
+        <div class="editor-actions">
+          <button type="button" class="button" data-close>Annulla</button>
+          <button type="submit" class="button primary">Invia messaggio</button>
+        </div>
+      </form>
+    </dialog>
+    <script src="./conversations.js" defer></script>
     <script src="./app.js" defer></script>
   </body>
 </html>

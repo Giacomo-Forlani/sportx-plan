@@ -2,7 +2,7 @@
 
 Spazio di lavoro del team: https://sportx.giacomoforlani.com/
 
-Frontend JavaScript senza framework, API Node.js e PostgreSQL persistente. Non è ancora prevista autenticazione, come richiesto. I dati sono condivisi da tutti i visitatori.
+Frontend JavaScript senza framework, API Node.js e PostgreSQL persistente. Backlog, decisioni e documento sono condivisi. Per accedere alle conversazioni serve un token personale.
 
 ## Comportamento
 
@@ -14,6 +14,25 @@ La dashboard supporta automaticamente **tema chiaro e scuro**, senza preferenze 
 - Decisioni con domanda e risposta modificabili nella stessa pagina, **eliminabili con conferma e controllo della revisione**. Una risposta non vuota colloca la domanda in “Con risposta”. Gli spazi da soli sono una risposta vuota; `?` è invece testo e conta come risposta. Ogni modifica effettiva della risposta sposta la voce in fondo alla sezione corrispondente; una modifica della sola domanda conserva la posizione.
 - La pagina Documento si apre direttamente in **anteprima Markdown** sanificata, aggiornata automaticamente quando i colleghi salvano nuove versioni. Le tabelle mantengono colonne leggibili senza spezzare gli identificativi e dispongono di scorrimento orizzontale dedicato, accessibile anche da tastiera; titoli, elenchi, citazioni e codice hanno una tipografia coerente in tema chiaro e scuro. **Modifica testo** apre l'editor e il Markdown viene salvato **automaticamente 600 ms dopo l'ultima modifica**, senza pulsante Salva. I salvataggi sono serializzati per non sovrascrivere digitazioni successive; quando si torna all'anteprima o si lascia la pagina, il sito tenta di salvare subito. Lo stato (modifiche in corso, salvataggio, salvato o errore) è sempre visibile. In caso di perdita di connessione, riprova automaticamente; in caso di conflitto di revisione, interrompe i salvataggi per non sovrascrivere un collega e chiede di copiare il testo locale prima di ricaricare.
 - Aggiornamento automatico ogni cinque secondi. Revisioni ottimistiche impediscono che salvataggi obsoleti sovrascrivano quelli di un collega. Le bozze restano visibili in caso di conflitto; per il documento copiare il testo prima di ricaricare.
+
+## Conversazioni tra sviluppatori e agenti
+
+La pagina **Conversazioni** e i tool MCP mostrano la stessa casella personale. Ogni thread ha due partecipanti, messaggi in ordine cronologico, un riferimento facoltativo a un’attività, una decisione o un link, e uno stato di lettura per partecipante. Una domanda può essere letta e restare in attesa di risposta. Il link del thread è copiabile e richiede il token di uno dei partecipanti.
+
+Per abilitare la casella, aggiungere `SPORTX_CONVERSATION_MEMBERS` all'ambiente dell'app, anche nella sezione **Environment** di Dokploy se usata. Inserire un oggetto JSON con un ID stabile per ogni sviluppatore, il nome visibile e un token personale distinto, generato ad esempio con `openssl rand -hex 32`. Conservare gli ID quando si cambia il nome o si ruota il token.
+
+```json
+{
+  "ada": {"name": "Ada Rossi", "token": "<token personale di Ada>"},
+  "luca": {"name": "Luca Bianchi", "token": "<token personale di Luca>"}
+}
+```
+
+Ciascuno usa il proprio token per la pagina **Conversazioni** e per l’header `Authorization: Bearer …` della connessione MCP. Il token condiviso `SPORTX_MCP_TOKEN` dà accesso ai tool di pianificazione già esistenti. Il token personale identifica il mittente e abilita anche i tool della casella.
+
+All’inizio di un’attività, al primo utilizzo di `sportx_plan`, l’agente chiama `sportx_list_conversations` con `unread_only: true`. Usa `sportx_read_conversation` per aprire un thread e `sportx_mark_conversation_read` per aggiornare la lettura fino all’ID effettivamente letto. Per inviare una domanda o un avviso, usa `sportx_send_message` con l’ID del destinatario, restituito dall'elenco. Le risposte usano `sportx_reply_conversation`.
+
+Per un contratto, `sportx_propose_agreement` crea la prossima versione a partire da quella appena letta. `sportx_confirm_agreement` registra l’assenso di ciascun partecipante sulla versione corrente. Le proposte e le conferme precedenti restano nel thread. **Solo lo sviluppatore apre la pull request, quando la sua implementazione è pronta.** Può collegare il thread nella descrizione della PR.
 
 ## Dati
 

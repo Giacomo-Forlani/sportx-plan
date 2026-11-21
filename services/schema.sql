@@ -26,3 +26,34 @@ CREATE TABLE IF NOT EXISTS decisions (
 CREATE TABLE IF NOT EXISTS document (
  id integer PRIMARY KEY CHECK(id=1), markdown text NOT NULL, revision integer NOT NULL DEFAULT 1
 );
+CREATE TABLE IF NOT EXISTS conversation_threads (
+ id uuid PRIMARY KEY,
+ sender_id text NOT NULL,
+ recipient_id text NOT NULL CHECK(recipient_id <> sender_id),
+ subject text NOT NULL,
+ reference text NOT NULL DEFAULT '',
+ kind text NOT NULL CHECK(kind IN ('question','notice')),
+ agreement_version integer NOT NULL DEFAULT 0,
+ updated_at timestamptz NOT NULL DEFAULT clock_timestamp()
+);
+CREATE INDEX IF NOT EXISTS conversation_threads_sender ON conversation_threads(sender_id);
+CREATE INDEX IF NOT EXISTS conversation_threads_recipient ON conversation_threads(recipient_id);
+CREATE TABLE IF NOT EXISTS conversation_messages (
+ id bigserial PRIMARY KEY,
+ thread_id uuid NOT NULL REFERENCES conversation_threads(id),
+ author_id text NOT NULL,
+ body text NOT NULL,
+ kind text NOT NULL CHECK(kind IN ('message','proposal','confirmation')),
+ agreement_version integer,
+ created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ CHECK ((kind = 'message') = (agreement_version IS NULL))
+);
+CREATE INDEX IF NOT EXISTS conversation_messages_by_thread ON conversation_messages(thread_id,id);
+CREATE UNIQUE INDEX IF NOT EXISTS conversation_confirmations_once
+ ON conversation_messages(thread_id,agreement_version,author_id) WHERE kind='confirmation';
+CREATE TABLE IF NOT EXISTS conversation_reads (
+ thread_id uuid NOT NULL REFERENCES conversation_threads(id),
+ member_id text NOT NULL,
+ through_id bigint NOT NULL,
+ PRIMARY KEY(thread_id,member_id)
+);

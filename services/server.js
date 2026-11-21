@@ -2,6 +2,7 @@ import http from "node:http";
 import { readFile } from "node:fs/promises";
 import { pool, initialize } from "./db.js";
 import { handleMcp } from "./mcp.js";
+import { conversationApi } from "./conversations.js";
 import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
 const statuses = [
@@ -92,6 +93,8 @@ async function snapshot() {
   }
 }
 async function api(req, path) {
+  if (path === "/conversations" || path.startsWith("/conversations/"))
+    return conversationApi(req, path, { body, field, Problem });
   if (req.method === "GET" && path === "/state") return snapshot();
   if (req.method === "GET" && path === "/health") {
     await pool.query("SELECT 1");
@@ -271,6 +274,7 @@ const assets = {
   "/": "index.html",
   "/index.html": "index.html",
   "/app.js": "app.js",
+  "/conversations.js": "conversations.js",
   "/style.css": "style.css",
   "/favicon.svg": "favicon.svg",
 };

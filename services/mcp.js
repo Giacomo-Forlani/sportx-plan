@@ -3,6 +3,7 @@
 // optimistic revisions used by the browser.
 import { createHash, timingSafeEqual } from "node:crypto";
 import { Readable } from "node:stream";
+import { conversationMember, conversationMembers } from "./conversations.js";
 
 class ToolInputError extends Error {}
 
@@ -26,6 +27,15 @@ const props = {
   answer: str(20000),
   markdown: str(1000000),
   answered: { type: "boolean" },
+  thread_id: str(36),
+  recipient: str(64),
+  subject: str(180),
+  reference: str(300),
+  message: str(20000),
+  kind: { type: "string", enum: ["question", "notice"] },
+  unread_only: { type: "boolean" },
+  through_id: str(19),
+  version: { type: "integer", minimum: 0 },
   confirm: { type: "boolean", const: true },
 };
 function tool(name, description, fields = [], required = [], write = false, destructive = false) {
@@ -62,6 +72,18 @@ export const mcpTools = [
   tool("read_document", "Leggi il documento Markdown condiviso e la sua revisione."),
   tool("update_document", "Sostituisci il documento Markdown solo se la revisione corrisponde.", ["revision", "markdown"], ["revision", "markdown"], true, true),
 ];
+
+const inboxTools = [
+  tool("list_conversations", "Controlla la tua casella, elenca gli ID dei destinatari e mostra le conversazioni in attesa di una tua risposta. Usa unread_only per filtrare i messaggi nuovi.", ["unread_only"]),
+  tool("send_message", "Avvia una conversazione con uno sviluppatore usando il suo ID. Collega l’attività o la decisione pertinente in reference.", ["recipient", "subject", "message", "reference", "kind"], ["recipient", "subject", "message"], true),
+  tool("read_conversation", "Leggi i messaggi e la versione corrente dell’accordo in una conversazione.", ["thread_id"], ["thread_id"]),
+  tool("reply_conversation", "Rispondi nella conversazione esistente.", ["thread_id", "message"], ["thread_id", "message"], true),
+  tool("mark_conversation_read", "Segna come letti i messaggi fino all’ID effettivamente letto, dopo averli riportati o presi in carico.", ["thread_id", "through_id"], ["thread_id", "through_id"], true),
+  tool("propose_agreement", "Pubblica il testo del contratto. Passa agreement_version letto nella conversazione come version (0 prima della prima proposta).", ["thread_id", "version", "message"], ["thread_id", "version", "message"], true),
+  tool("confirm_agreement", "Conferma esplicitamente la versione del contratto che hai letto. La PR è aperta dallo sviluppatore quando l’implementazione è pronta.", ["thread_id", "version"], ["thread_id", "version"], true),
+];
+const inboxInstructions = "All’inizio di ogni attività SportX, al primo utilizzo di sportx_plan, controlla i messaggi non letti con sportx_list_conversations. Usa l’identità del token personale. Per i contratti proponi e conferma una versione nello stesso thread. Solo lo sviluppatore apre una PR, quando la sua implementazione è pronta.";
+const instructions = "Usa i tool SportX per gestire dati condivisi. Prima di modificare una voce leggi la revisione corrente.";
 
 function send(res, status, value, headers = {}) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...headers });
@@ -112,6 +134,11 @@ function identifier(value, type) {
   if (!Number.isSafeInteger(value) || value < 1) throw new ToolInputError("ID non valido.");
   return String(value);
 }
+function conversationId(id) {
+  if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(id))
+    throw new ToolInputError("ID conversazione non valido.");
+  return id;
+}
 function requireRevision(a) {
   if (!Number.isSafeInteger(a.revision) || a.revision < 1) throw new ToolInputError("Revisione non valida.");
 }
@@ -131,13 +158,16 @@ function validateArguments(def, args) {
     if (rule.const !== undefined && value !== rule.const) throw new ToolInputError("Conferma esplicita richiesta.");
   }
 }
-async function runTool(name, args, callApi) {
-  const def = mcpTools.find((x) => x.name === name);
+async function runTool(name, args, callApi, authorization, member) {
+  const inboxTool = inboxTools.find((x) => x.name === name);
+  if (inboxTool && !member) throw new ToolInputError("Per le conversazioni usa il tuo token personale SportX.");
+  const def = inboxTool ?? mcpTools.find((x) => x.name === name);
   if (!def) throw new ToolInputError("Strumento sconosciuto: " + name);
   validateArguments(def, args);
   async function call(method, path, data) {
     const request = Readable.from(data === undefined ? [] : [JSON.stringify(data)]);
     request.method = method;
+    request.headers = { authorization };
     return callApi(request, path);
   }
   const state = () => call("GET", "/state");
@@ -182,6 +212,23 @@ async function runTool(name, args, callApi) {
     case "sportx_update_document":
       requireRevision(args);
       return call("PUT", "/document", { revision: args.revision, markdown: args.markdown });
+    case "sportx_list_conversations": {
+      const inbox = await call("GET", "/conversations");
+      if (args.unread_only) inbox.threads = inbox.threads.filter(({ unread }) => unread);
+      return inbox;
+    }
+    case "sportx_send_message":
+      return call("POST", "/conversations", args);
+    case "sportx_read_conversation":
+      return call("GET", "/conversations/" + conversationId(args.thread_id));
+    case "sportx_reply_conversation":
+      return call("POST", "/conversations/" + conversationId(args.thread_id) + "/replies", { message: args.message });
+    case "sportx_mark_conversation_read":
+      return call("POST", "/conversations/" + conversationId(args.thread_id) + "/read", { through_id: args.through_id });
+    case "sportx_propose_agreement":
+      return call("POST", "/conversations/" + conversationId(args.thread_id) + "/proposal", { message: args.message, version: args.version });
+    case "sportx_confirm_agreement":
+      return call("POST", "/conversations/" + conversationId(args.thread_id) + "/confirmation", { version: args.version });
     default: throw new ToolInputError("Strumento sconosciuto.");
   }
 }
@@ -199,12 +246,14 @@ function decorate(result, isModern) {
 }
 export async function handleMcp(req, res, callApi) {
   const secret = process.env.SPORTX_MCP_TOKEN;
-  // Fail closed: the endpoint is disabled until a strong secret is configured.
-  if (!secret || Buffer.byteLength(secret) < 32) {
+  const sharedConfigured = secret && Buffer.byteLength(secret) >= 32;
+  const authorization = req.headers.authorization;
+  const member = conversationMember(authorization);
+  if (!sharedConfigured && !conversationMembers().length) {
     send(res, 503, { error: "MCP non configurato." });
     return;
   }
-  if (!constantTimeTokenEquals(secret, req.headers.authorization)) {
+  if (!member && !(sharedConfigured && constantTimeTokenEquals(secret, authorization))) {
     send(res, 401, { error: "Token MCP richiesto." }, { "WWW-Authenticate": 'Bearer realm="sportx-mcp"' });
     return;
   }
@@ -263,7 +312,7 @@ export async function handleMcp(req, res, callApi) {
         result = {
           protocolVersion: ["2025-11-25", "2025-06-18", "2025-03-26"].includes(msg.params?.protocolVersion) ? msg.params.protocolVersion : legacy,
           capabilities: { tools: { listChanged: false } }, serverInfo: identity,
-          instructions: "Usa i tool SportX per gestire dati condivisi. Prima di modificare una voce leggi la revisione corrente.",
+          instructions: member ? inboxInstructions + " " + instructions : instructions,
         };
         break;
       case "server/discover":
@@ -271,7 +320,7 @@ export async function handleMcp(req, res, callApi) {
         result = {
           supportedVersions: [modern, legacy],
           capabilities: { tools: { listChanged: false } },
-          instructions: "Usa le revisioni correnti quando modifichi o elimini dati.",
+          instructions: member ? inboxInstructions + " " + instructions : instructions,
           ttlMs: 0, cacheScope: "private",
         };
         break;
@@ -279,14 +328,14 @@ export async function handleMcp(req, res, callApi) {
         result = {};
         break;
       case "tools/list":
-        result = { tools: mcpTools, ...(isModern ? { ttlMs: 0, cacheScope: "private" } : {}) };
+        result = { tools: member ? [...mcpTools, ...inboxTools] : mcpTools, ...(isModern ? { ttlMs: 0, cacheScope: "private" } : {}) };
         break;
       case "tools/call":
         if (!msg.params || typeof msg.params.name !== "string") {
           send(res, 200, err(requestId, -32602, "Nome strumento mancante.")); return;
         }
         try {
-          result = toolResult(await runTool(msg.params.name, inputObject(msg.params.arguments), callApi));
+          result = toolResult(await runTool(msg.params.name, inputObject(msg.params.arguments), callApi, authorization, member));
         } catch (e) {
           result = toolResult((e instanceof ToolInputError || (e.status && e.status < 500)) ? e.message : "Servizio temporaneamente non disponibile.", true);
         }

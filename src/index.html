@@ -197,19 +197,17 @@
                 </p>
               </div>
               <div class="actions">
-                <button id="preview-document" class="button" type="button">Modifica testo</button
-                ><button id="save-document" class="button primary hidden" type="button">
-                  Salva documento
-                </button>
+                <span id="document-status" class="document-save-status" role="status" aria-live="polite">Salvataggio automatico</span>
+                <button id="preview-document" class="button" type="button" disabled>Modifica testo</button>
               </div>
             </div>
             <label id="document-editor-label" class="document-label hidden" for="document-text"
-              >Testo Markdown
-              <span id="document-status" role="status"></span></label
+              >Testo Markdown · salvataggio automatico</label
             ><textarea
               id="document-text"
               class="document-text hidden"
               spellcheck="false"
+              maxlength="1000000"
             ></textarea>
             <article
               id="document-preview"
